@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Werror -Wextra -pedantic -I src -I build
 
 NAME = orn
-SRC = src/main.c
+SRC = $(wildcard src/**/*.c) $(wildcard src/*.c)
 
 all:
 	mkdir -p build/ && $(CC) $(CFLAGS) $(SRC) -o build/$(NAME)
@@ -11,7 +11,7 @@ run: all
 	./build/$(NAME) $(ARGS)
 
 PROVE = prove
-T = $(wildcard tests/*.sh)
+T = $(wildcard tests/t[0-9]*.sh)
 
 test: all
 	$(PROVE) --exec sh -j$$(nproc) $(T)

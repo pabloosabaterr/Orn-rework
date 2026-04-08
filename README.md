@@ -18,6 +18,10 @@ Orn aims to be a low-level language that attracts coders from high-level langs
 like typescript to become more familiar with low-level programming, while
 providing a soft learning curve and a good developer experience.
 
+## Architecture
+
+- [Lexer](DOCUMENTATION/lexer.md): tokenization and lexical analysis
+
 ## Build
 
 ```
