@@ -13,19 +13,19 @@ test_expect_success 'basic tokenization' '
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
-	fn - 1:0
-	main - 1:3
-	( - 1:7
-	) - 1:8
-	{ - 1:10
-	let - 2:0
-	x - 2:4
-	: - 2:5
-	int - 2:7
-	= - 2:11
-	42 - 2:13
-	; - 2:15
-	} - 3:0
+	fn [fn] - 1:0
+	main [ID] - 1:3
+	( [LPAREN] - 1:7
+	) [RPAREN] - 1:8
+	{ [LBRACE] - 1:10
+	let [let] - 2:0
+	x [ID] - 2:4
+	: [COLON] - 2:5
+	int [int] - 2:7
+	= [EQUAL] - 2:11
+	42 [NUMBER] - 2:13
+	; [SEMICOLON] - 2:15
+	} [RBRACE] - 3:0
 	EOF
 	test_cmp expect actual
 '
@@ -36,18 +36,18 @@ test_expect_success 'multi-character operators' '
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
-	== - 1:0
-	!= - 1:3
-	<< - 1:6
-	>> - 1:9
-	-> - 1:12
-	<- - 1:15
-	++ - 1:18
-	-- - 1:21
-	<= - 1:24
-	>= - 1:27
-	&& - 1:30
-	|| - 1:33
+	== [CMP] - 1:0
+	!= [NEQ] - 1:3
+	<< [LSHIFT] - 1:6
+	>> [RSHIFT] - 1:9
+	-> [RARROW] - 1:12
+	<- [LARROW] - 1:15
+	++ [INCREMENT] - 1:18
+	-- [DECREMENT] - 1:21
+	<= [LE] - 1:24
+	>= [GE] - 1:27
+	&& [AND] - 1:30
+	|| [OR] - 1:33
 	EOF
 	test_cmp expect actual
 '
@@ -58,18 +58,18 @@ test_expect_success 'single-character operators' '
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
-	+ - 1:0
-	- - 1:2
-	* - 1:4
-	/ - 1:6
-	% - 1:8
-	~ - 1:10
-	^ - 1:12
-	? - 1:14
-	: - 1:16
-	. - 1:18
-	, - 1:20
-	; - 1:22
+	+ [PLUS] - 1:0
+	- [MINUS] - 1:2
+	* [STAR] - 1:4
+	/ [SLASH] - 1:6
+	% [MOD] - 1:8
+	~ [TILDE] - 1:10
+	^ [CARET] - 1:12
+	? [QUESTION] - 1:14
+	: [COLON] - 1:16
+	. [DOT] - 1:18
+	, [COMMA] - 1:20
+	; [SEMICOLON] - 1:22
 	EOF
 	test_cmp expect actual
 '
@@ -80,11 +80,11 @@ test_expect_success 'keywords are not identifiers' '
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
-	if - 1:0
-	iff - 1:3
-	iffy - 1:7
-	return - 1:12
-	returning - 1:19
+	if [if] - 1:0
+	iff [ID] - 1:3
+	iffy [ID] - 1:7
+	return [ID] - 1:12
+	returning [ID] - 1:19
 	EOF
 	test_cmp expect actual
 '
@@ -95,9 +95,9 @@ test_expect_success 'string and char literals' '
 	INPUT
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
-	"hello" - 1:0
-	'\''c'\'' - 1:8
-	"world" - 1:12
+	"hello" [STRING] - 1:0
+	'\''c'\'' [CHAR] - 1:8
+	"world" [STRING] - 1:12
 	EOF
 	test_cmp expect actual
 '
@@ -112,18 +112,18 @@ test_expect_success 'number literals' '
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
-	0 - 1:0
-	42 - 1:2
-	12345 - 1:5
-	3.14 - 2:0
-	0.5 - 2:5
-	100.0 - 2:9
-	0xFF - 3:0
-	0XAB - 3:5
-	0o77 - 4:0
-	0O17 - 4:5
-	0b1010 - 5:0
-	0B11 - 5:7
+	0 [NUMBER] - 1:0
+	42 [NUMBER] - 1:2
+	12345 [NUMBER] - 1:5
+	3.14 [FLOATING] - 2:0
+	0.5 [FLOATING] - 2:5
+	100.0 [FLOATING] - 2:9
+	0xFF [HEX] - 3:0
+	0XAB [HEX] - 3:5
+	0o77 [OCTAL] - 4:0
+	0O17 [OCTAL] - 4:5
+	0b1010 [BINARY] - 5:0
+	0B11 [BINARY] - 5:7
 	EOF
 	test_cmp expect actual
 '
@@ -134,9 +134,9 @@ test_expect_success 'dot dot is not float' '
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
-	1 - 1:0
-	.. - 1:1
-	10 - 1:3
+	1 [NUMBER] - 1:0
+	.. [RANGE] - 1:1
+	10 [NUMBER] - 1:3
 	EOF
 	test_cmp expect actual
 '
@@ -148,8 +148,8 @@ test_expect_success 'line comments are skipped' '
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
-	x - 1:0
-	y - 2:0
+	x [ID] - 1:0
+	y [ID] - 2:0
 	EOF
 	test_cmp expect actual
 '
@@ -161,8 +161,8 @@ test_expect_success 'block comments are skipped' '
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
-	x - 1:0
-	y - 2:19
+	x [ID] - 1:0
+	y [ID] - 2:19
 	EOF
 	test_cmp expect actual
 '

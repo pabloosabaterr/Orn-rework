@@ -5,12 +5,12 @@
 #include <stdio.h>
 #include <string.h>
 
-struct keyword {
+struct token_type_name {
 	enum token_type type;
 	const char *str;
 };
 
-static const struct keyword keyword_table[] = {
+static const struct token_type_name keyword_table[] = {
 	{ TK_INT, "int" },
 	{ TK_UINT, "unsigned" },
 	{ TK_FLOATING, "floating" },
@@ -43,6 +43,65 @@ static const struct keyword keyword_table[] = {
 	{ TK_TYPE, "type" },
 	{ TK_AS, "as" },
 	{ TK_NULL, "null" },
+};
+
+static const struct token_type_name token_names[] = {
+	{ TK_EOF, "EOF" },
+	{ TK_ERROR, "ERROR" },
+	{ TK_ID, "ID" },
+	{ TK_NUMBER, "NUMBER" },
+	{ TK_HEX, "HEX" },
+	{ TK_OCTAL, "OCTAL" },
+	{ TK_BINARY, "BINARY" },
+	{ TK_FLOATING, "FLOATING" },
+	{ TK_STRINGLIT, "STRING" },
+	{ TK_CHARLIT, "CHAR" },
+	{ TK_LPAREN, "LPAREN" },
+	{ TK_RPAREN, "RPAREN" },
+	{ TK_LBRACE, "LBRACE" },
+	{ TK_RBRACE, "RBRACE" },
+	{ TK_LBRACKET, "LBRACKET" },
+	{ TK_RBRACKET, "RBRACKET" },
+	{ TK_SEMICOLON, "SEMICOLON" },
+	{ TK_COMMA, "COMMA" },
+	{ TK_DOT, "DOT" },
+	{ TK_EQUAL, "EQUAL" },
+	{ TK_PLUS, "PLUS" },
+	{ TK_MINUS, "MINUS" },
+	{ TK_STAR, "STAR" },
+	{ TK_SLASH, "SLASH" },
+	{ TK_LT, "LT" },
+	{ TK_GT, "GT" },
+	{ TK_LE, "LE" },
+	{ TK_GE, "GE" },
+	{ TK_CMP, "CMP" },
+	{ TK_NEQ, "NEQ" },
+	{ TK_AMP, "AMP" },
+	{ TK_PIPE, "PIPE" },
+	{ TK_CARET, "CARET" },
+	{ TK_TILDE, "TILDE" },
+	{ TK_AND, "AND" },
+	{ TK_OR, "OR" },
+	{ TK_COLON, "COLON" },
+	{ TK_NOT, "NOT" },
+	{ TK_QUESTION, "QUESTION" },
+	{ TK_INCREMENT, "INCREMENT" },
+	{ TK_DECREMENT, "DECREMENT" },
+	{ TK_LSHIFT, "LSHIFT" },
+	{ TK_RSHIFT, "RSHIFT" },
+	{ TK_LARROW, "LARROW" },
+	{ TK_RARROW, "RARROW" },
+	{ TK_MOD, "MOD" },
+	{ TK_NAMESPACE, "NAMESPACE" },
+	{ TK_RANGE, "RANGE" },
+	{ TK_FATARROW, "FATARROW" },
+	{ TK_SPREAD, "SPREAD" },
+	{ TK_PLUSEQ, "PLUSEQ" },
+	{ TK_MINUSEQ, "MINUSEQ" },
+	{ TK_STAREQ, "STAREQ" },
+	{ TK_SLASHEQ, "SLASHEQ" },
+	{ TK_MODEQ, "MODEQ" },
+	{ TK_UNDERSCORE, "UNDERSCORE" },
 };
 
 static inline int is_next(struct lexer_context *lexer, char c)
@@ -340,6 +399,21 @@ struct token token_next(struct lexer_context *lexer)
 	}
 }
 
+static const char *token_type_str(enum token_type type)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(token_names); i++)
+		if (token_names[i].type == type)
+			return token_names[i].str;
+
+	for (i = 0; i < ARRAY_SIZE(keyword_table); i++)
+		if (keyword_table[i].type == type)
+			return keyword_table[i].str;
+
+	return "UNKNOWN";
+}
+
 int dump_tokens(struct lexer_context *lexer)
 {
 	struct token token;
@@ -350,7 +424,8 @@ int dump_tokens(struct lexer_context *lexer)
 			errors++;
 			continue;
 		}
-		printf("%.*s - %d:%d\n", (int)token.len, token.lex,
+		printf("%.*s [%s] - %d:%d\n", (int)token.len, token.lex,
+		       token_type_str(token.type),
 		       token.line, token.col);
 	}
 
