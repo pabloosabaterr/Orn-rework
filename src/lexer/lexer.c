@@ -13,8 +13,7 @@ struct keyword {
 static const struct keyword keyword_table[] = {
 	{ TK_INT, "int" },
 	{ TK_UINT, "unsigned" },
-	{ TK_FLOAT, "float" },
-	{ TK_DOUBLE, "double" },
+	{ TK_FLOATING, "floating" },
 	{ TK_BOOL, "bool" },
 	{ TK_VOID, "void" },
 	{ TK_CHAR, "char" },
@@ -136,10 +135,42 @@ static struct token token_id(struct lexer_context *lexer, const char *start)
 
 static struct token token_number(struct lexer_context *lexer, const char *start)
 {
+	if (*start == '0' && !is_end(lexer)) {
+		if (follow_next(lexer, 'x') || follow_next(lexer, 'X')) {
+			while (!is_end(lexer) && isxdigit(*lexer->current))
+				advance(lexer);
+			return create_token(TK_HEX, start,
+					    (size_t)(lexer->current - start));
+		}
+		if (follow_next(lexer, 'o') || follow_next(lexer, 'O')) {
+			while (!is_end(lexer) &&
+			       *lexer->current >= '0' && *lexer->current <= '7')
+				advance(lexer);
+			return create_token(TK_OCTAL, start,
+					    (size_t)(lexer->current - start));
+		}
+		if (follow_next(lexer, 'b') || follow_next(lexer, 'B')) {
+			while (!is_end(lexer) &&
+			       (*lexer->current == '0' || *lexer->current == '1'))
+				advance(lexer);
+			return create_token(TK_BINARY, start,
+					    (size_t)(lexer->current - start));
+		}
+	}
+
 	while (!is_end(lexer) && isdigit(*lexer->current))
 		advance(lexer);
 
-	return create_token(TK_NUMBER, start, (size_t)(lexer->current - start));
+	if (!is_end(lexer) && is_next(lexer, '.') && lexer->current[1] != '.') {
+		advance(lexer);
+		while (!is_end(lexer) && isdigit(*lexer->current))
+			advance(lexer);
+		return create_token(TK_FLOATING, start,
+				    (size_t)(lexer->current - start));
+	}
+
+	return create_token(TK_NUMBER, start,
+			    (size_t)(lexer->current - start));
 }
 
 static struct token error_token(struct lexer_context *lexer, const char *start, int len, const char *msg)

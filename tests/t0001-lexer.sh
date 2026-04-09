@@ -105,12 +105,38 @@ test_expect_success 'string and char literals' '
 test_expect_success 'number literals' '
 	cat >input.orn <<-\EOF &&
 	0 42 12345
+	3.14 0.5 100.0
+	0xFF 0XAB
+	0o77 0O17
+	0b1010 0B11
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
 	0 - 1:0
 	42 - 1:2
 	12345 - 1:5
+	3.14 - 2:0
+	0.5 - 2:5
+	100.0 - 2:9
+	0xFF - 3:0
+	0XAB - 3:5
+	0o77 - 4:0
+	0O17 - 4:5
+	0b1010 - 5:0
+	0B11 - 5:7
+	EOF
+	test_cmp expect actual
+'
+
+test_expect_success 'dot dot is not float' '
+	cat >input.orn <<-\EOF &&
+	1..10
+	EOF
+	"$ORN" --dump-tokens input.orn >actual &&
+	cat >expect <<-\EOF &&
+	1 - 1:0
+	.. - 1:1
+	10 - 1:3
 	EOF
 	test_cmp expect actual
 '

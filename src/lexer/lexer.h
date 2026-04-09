@@ -12,9 +12,11 @@ enum token_type {
 	TK_CHARLIT,
 
 	TK_INT,
+	TK_HEX,
+	TK_OCTAL,
+	TK_BINARY,
 	TK_UINT,
-	TK_FLOAT,
-	TK_DOUBLE,
+	TK_FLOATING,
 	TK_BOOL,
 	TK_VOID,
 	TK_CHAR,
