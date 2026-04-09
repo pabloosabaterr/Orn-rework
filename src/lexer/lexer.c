@@ -36,6 +36,14 @@ static const struct keyword keyword_table[] = {
 	{ TK_FN, "fn" },
 	{ TK_SIZE_OF, "sizeof" },
 	{ TK_SYSCALL, "syscall" },
+	{ TK_FOR, "for" },
+	{ TK_IN, "in" },
+	{ TK_MATCH, "match" },
+	{ TK_DEFER, "defer" },
+	{ TK_IMPL, "impl" },
+	{ TK_TYPE, "type" },
+	{ TK_AS, "as" },
+	{ TK_NULL, "null" },
 };
 
 static inline int is_next(struct lexer_context *lexer, char c)
@@ -208,36 +216,57 @@ struct token token_next(struct lexer_context *lexer)
 		return create_token(TK_SEMICOLON, start, 1);
 	case ',':
 		return create_token(TK_COMMA, start, 1);
+	case '_':
+		return create_token(TK_UNDERSCORE, start, 1);
 	case '.':
+		if (follow_next(lexer, '.')) {
+			if (follow_next(lexer, '.'))
+				return create_token(TK_SPREAD, start, 3);
+			return create_token(TK_RANGE, start, 2);
+		}
 		return create_token(TK_DOT, start, 1);
 	case '~':
 		return create_token(TK_TILDE, start, 1);
 	case '?':
 		return create_token(TK_QUESTION, start, 1);
 	case ':':
+		if (follow_next(lexer, ':'))
+			return create_token(TK_NAMESPACE, start, 2);
 		return create_token(TK_COLON, start, 1);
 	case '%':
+		if (follow_next(lexer, '='))
+			return create_token(TK_MODEQ, start, 2);
 		return create_token(TK_MOD, start, 1);
 	case '*':
+		if (follow_next(lexer, '='))
+			return create_token(TK_STAREQ, start, 2);
 		return create_token(TK_STAR, start, 1);
 	case '^':
 		return create_token(TK_CARET, start, 1);
 	case '/':
+		if (follow_next(lexer, '='))
+			return create_token(TK_SLASHEQ, start, 2);
 		return create_token(TK_SLASH, start, 1);
 
 	case '+':
 		if (follow_next(lexer, '+'))
-			return create_token(TK_PLUSPLUS, start, 2);
+			return create_token(TK_INCREMENT, start, 2);
+		if (follow_next(lexer, '='))
+			return create_token(TK_PLUSEQ, start, 2);
 		return create_token(TK_PLUS, start, 1);
 	case '-':
 		if (follow_next(lexer, '-'))
-			return create_token(TK_MINUSMINUS, start, 2);
+			return create_token(TK_DECREMENT, start, 2);
 		if (follow_next(lexer, '>'))
 			return create_token(TK_RARROW, start, 2);
+		if (follow_next(lexer, '='))
+			return create_token(TK_MINUSEQ, start, 2);
 		return create_token(TK_MINUS, start, 1);
 	case '=':
 		if (follow_next(lexer, '='))
-			return create_token(TK_EQEQ, start, 2);
+			return create_token(TK_CMP, start, 2);
+		if (follow_next(lexer, '>'))
+			return create_token(TK_FATARROW, start, 2);
 		return create_token(TK_EQUAL, start, 1);
 	case '!':
 		if (follow_next(lexer, '='))
