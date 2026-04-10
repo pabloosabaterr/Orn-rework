@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Werror -Wextra -pedantic -I src -I build
+CFLAGS = -std=c11 -Wall -Werror -Wextra -pedantic -I src -I build
 
 NAME = orn
 SRC = $(wildcard src/**/*.c) $(wildcard src/*.c)

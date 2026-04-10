@@ -3,8 +3,9 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdnoreturn.h>
 
-void die(const char *fmt, ...);
+noreturn void die(const char *fmt, ...);
 
 static inline int check_mult_overflow(size_t a, size_t b)
 {
@@ -67,5 +68,7 @@ void *xmalloc(size_t size);
 void *xcalloc(size_t num, size_t size);
 char *xstrdup(const char *s);
 void *xrealloc(void *ptr, size_t size);
+long long xstrtoll(const char *s, size_t len, int base);
+double xstrtod(const char *s, size_t len);
 
 #endif /* WRAPPER_H */
