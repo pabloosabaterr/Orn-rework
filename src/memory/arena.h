@@ -5,6 +5,21 @@
 
 #define align_up(n, alignement) (((n) + (alignement) - 1) & ~((alignement) -1))
 
+#define ARENA_ALLOC_GROW(arena, ptr, count, alloc) \
+	do { \
+		if ((count) > (alloc)) { \
+			size_t new_alloc = (alloc); \
+			if(alloc_needed(alloc) < (count)) \
+				new_alloc = (count); \
+			else \
+				new_alloc = alloc_needed(new_alloc); \
+			(ptr) = arena_realloc((arena), (ptr), \
+					      sizeof(*(ptr)) * (alloc), \
+					      sizeof(*(ptr)) * (new_alloc)); \
+			(alloc) = new_alloc; \
+		} \
+	} while (0)
+
 struct arena_chunk {
 	size_t size;
 	struct arena_chunk *next;

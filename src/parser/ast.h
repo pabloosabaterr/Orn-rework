@@ -2,6 +2,7 @@
 #define AST_H
 
 #include "lexer/lexer.h"
+#include "memory/arena.h"
 
 #include <stddef.h>
 
@@ -271,5 +272,12 @@ struct ast_node {
 		} type_array;
 	};
 };
+
+struct ast_node *ast_node_new(struct arena *a, enum node_type type,
+			      struct token tok);
+void ast_node_append(struct arena *a, struct ast_node *block,
+		     struct ast_node *child);
+enum op_type token_to_op(enum token_type type);
+void ast_dump(struct ast_node *node);
 
 #endif
