@@ -3,8 +3,6 @@
 # shellcheck disable=SC1091,SC2016,SC2034
 . "$(dirname "$0")/test-lib.sh"
 
-ORN="./build/orn"
-
 test_expect_success 'basic tokenization' '
 	cat >input.orn <<-\EOF &&
 	fn main() {

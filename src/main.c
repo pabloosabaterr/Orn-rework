@@ -1,4 +1,6 @@
 #include "lexer/lexer.h"
+#include "parser/ast.h"
+#include "parser/parser.h"
 #include "memory/wrapper.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,6 +9,7 @@
 struct compiler_context {
 	struct lexer_context lexer;
 	unsigned dump_tokens:1;
+	unsigned dump_ast:1;
 	unsigned expect_file:1;
 };
 
@@ -50,6 +53,8 @@ int main(int argc, char **argv)
 	for (i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--dump-tokens"))
 			ctx->dump_tokens = 1;
+		else if (!strcmp(argv[i], "--dump-ast"))
+			ctx->dump_ast = 1;
 		else if (ctx->expect_file) {
 			ctx->expect_file = 0;
 			src = read_file(argv[i]);
@@ -66,6 +71,17 @@ int main(int argc, char **argv)
 		free(src);
 		free(ctx);
 		return errors ? 1 : 0;
+	}
+
+	if (ctx->dump_ast) {
+		struct parser_context parser;
+		parser_init(&parser, &ctx->lexer);
+		struct ast_node *expr = parser_parse_expr(&parser);
+		ast_dump(expr);
+		parser_free(&parser);
+		free(src);
+		free(ctx);
+		return 0;
 	}
 
 	free(src);

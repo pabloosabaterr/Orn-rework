@@ -4,6 +4,13 @@ test_count=0
 pass_count=0
 fail_count=0
 
+TEST_DIR_ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ORN="$TEST_DIR_ROOT/build/orn"
+
+test_dir=$(mktemp -d)
+trap 'rm -rf "$test_dir"' EXIT
+cd "$test_dir" || exit 1
+
 test_expect_success () {
 	test_count=$((test_count + 1))
 	desc="$1"
@@ -57,7 +64,6 @@ test_must_be_empty () {
 }
 
 test_done () {
-	rm -f input.orn actual expect err
 	echo "1..$test_count"
 	if test "$fail_count" -gt 0
 	then
