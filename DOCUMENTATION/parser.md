@@ -91,8 +91,6 @@ while_stmt = WHILE expr stmt
 
 for_stmt = FOR ID IN range_expr stmt
 
-range_expr = expr RANGE expr
-
 return_stmt = RETURN expr? SEMI
 
 break_stmt = BREAK SEMI
@@ -121,7 +119,9 @@ expr = assign_expr
 
 assign_expr = unary_expr
               (EQ | PLUSEQ | MINUSEQ | STAREQ | SLASHEQ | MODEQ) assign_expr
-            | or_expr
+            | range_expr
+
+range_expr = or_expr (RANGE or_expr)?
 
 or_expr = and_expr (OR and_expr)*
 
@@ -193,19 +193,20 @@ base_type = INT | UINT | FLOAT | DOUBLE | BOOL
 
 ```
 1.  assignment      =  +=  -=  *=  /=  %=        (right associative)
-2.  logical or      ||                           (left)
-3.  logical and     &&                           (left)
-4.  bitwise or      |                            (left)
-5.  bitwise xor     ^                            (left)
-6.  bitwise and     &                            (left)
-7.  equality        ==  !=                       (left)
-8.  comparison      <  >  <=  >=                 (left)
-9.  shift           <<  >>                       (left)
-10. additive        +  -                         (left)
-11. multiplicative  *  /  %                      (left)
-12. cast            as                           (left)
-13. unary prefix    -  !  ~  &  *                (right)
-14. postfix         ()  []  .  ::                (left)
+2.  range           ..                           (left)
+3.  logical or      ||                           (left)
+4.  logical and     &&                           (left)
+5.  bitwise or      |                            (left)
+6.  bitwise xor     ^                            (left)
+7.  bitwise and     &                            (left)
+8.  equality        ==  !=                       (left)
+9.  comparison      <  >  <=  >=                 (left)
+10. shift           <<  >>                       (left)
+11. additive        +  -                         (left)
+12. multiplicative  *  /  %                      (left)
+13. cast            as                           (left)
+14. unary prefix    -  !  ~  &  *                (right)
+15. postfix         ()  []  .  ::                (left)
 ```
 
 Note: `++` and `--` are not operators. They are statement-level only

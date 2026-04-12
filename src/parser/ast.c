@@ -146,6 +146,17 @@ static void do_ast_dump(struct ast_node *node, int depth, int last, int *prefix)
 	prefix[depth] = last;
 
 	switch (node->type) {
+	case NODE_PROGRAM:
+	case NODE_BLOCK:
+		fprintf(stdout, "%s\n", node->type == NODE_PROGRAM ? "PROGRAM" : "BLOCK");
+		for (i = 0; i < (int)node->block.nr; i++)
+			do_ast_dump(node->block.childs[i], depth + 1,
+				    i == (int)node->block.nr - 1, prefix);
+		break;
+	case NODE_EXPR_STMT:
+		fprintf(stdout, "EXPR_STMT\n");
+		do_ast_dump(node->expr_stmt.expr, depth + 1, 1, prefix);
+		break;
 	case NODE_INT:
 		printf("INT %lld\n", node->lit_int.val);
 		break;
@@ -253,6 +264,79 @@ static void do_ast_dump(struct ast_node *node, int depth, int last, int *prefix)
 		printf("TYPE_ARR [%lld]\n", node->type_array.size);
 		do_ast_dump(node->type_array.elem_type, depth + 1, 1,
 			    prefix);
+		break;
+	case NODE_IF:
+		fprintf(stdout, "IF (%zu branch%s)\n",
+			node->if_stmt.nr_branch,
+			node->if_stmt.nr_branch > 1 ? "es" : "");
+		for (i = 0; i < (int)node->if_stmt.nr_branch; i++) {
+			do_ast_dump(node->if_stmt.conds[i], depth + 1, 0, prefix);
+			do_ast_dump(node->if_stmt.bodies[i], depth + 1,
+				    !node->if_stmt.else_body &&
+					    i == (int)node->if_stmt.nr_branch - 1,
+				    prefix);
+		}
+		if (node->if_stmt.else_body)
+			do_ast_dump(node->if_stmt.else_body, depth + 1, 1, prefix);
+		break;
+	case NODE_WHILE:
+		fprintf(stdout, "WHILE\n");
+		do_ast_dump(node->while_stmt.cond, depth + 1, 0, prefix);
+		do_ast_dump(node->while_stmt.body, depth + 1, 1, prefix);
+		break;
+	case NODE_FOR:
+		fprintf(stdout, "FOR '%.*s'\n",
+			(int)node->tok.len, node->tok.lex);
+		do_ast_dump(node->for_stmt.range, depth + 1, 0, prefix);
+		do_ast_dump(node->for_stmt.body, depth + 1, 1, prefix);
+		break;
+	case NODE_RETURN:
+		fprintf(stdout, "RETURN\n");
+		if (node->return_stmt.expr)
+			do_ast_dump(node->return_stmt.expr, depth + 1, 1, prefix);
+		break;
+	case NODE_BREAK:
+		fprintf(stdout, "BREAK\n");
+		break;
+	case NODE_CONTINUE:
+		fprintf(stdout, "CONTINUE\n");
+		break;
+	case NODE_DEFER:
+		fprintf(stdout, "DEFER\n");
+		do_ast_dump(node->defer_stmt.stmt, depth + 1, 1, prefix);
+		break;
+	case NODE_INCDEC:
+		fprintf(stdout, "INCDEC (%s)\n", op_name(node->incdec.type));
+		do_ast_dump(node->incdec.target, depth + 1, 1, prefix);
+		break;
+	case NODE_MATCH:
+		fprintf(stdout, "MATCH\n");
+		do_ast_dump(node->match.subj, depth + 1,
+			    node->match.nr_arm == 0, prefix);
+		for (i = 0; i < (int)node->match.nr_arm; i++)
+			do_ast_dump(node->match.arms[i], depth + 1,
+				    i == (int)node->match.nr_arm - 1, prefix);
+		break;
+	case NODE_MATCH_ARM:
+		fprintf(stdout, "MATCH_ARM\n");
+		do_ast_dump(node->match_arm.pattern, depth + 1, 0, prefix);
+		do_ast_dump(node->match_arm.body, depth + 1, 1, prefix);
+		break;
+	case NODE_MATCH_PATTERN:
+		if (node->match_pattern.is_wildcard) {
+			fprintf(stdout, "MATCH_PATTERN (wildcard)\n");
+		} else if (node->match_pattern.nr_bind > 0) {
+			fprintf(stdout, "MATCH_PATTERN (bind:");
+			for (i = 0; i < (int)node->match_pattern.nr_bind; i++)
+				fprintf(stdout, " %.*s",
+					(int)node->match_pattern.bind[i].len,
+					node->match_pattern.bind[i].lex);
+			fprintf(stdout, ")\n");
+			do_ast_dump(node->match_pattern.expr, depth + 1, 1, prefix);
+		} else {
+			fprintf(stdout, "MATCH_PATTERN\n");
+			do_ast_dump(node->match_pattern.expr, depth + 1, 1, prefix);
+		}
 		break;
 	default:
 		printf("UNKNOWN node_type=%d\n", node->type);

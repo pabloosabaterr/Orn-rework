@@ -176,8 +176,7 @@ struct ast_node {
 		} if_stmt;
 
 		struct {
-			struct ast_node *range_lo;
-			struct ast_node *range_hi;
+			struct ast_node *range;
 			struct ast_node *body;
 		} for_stmt;
 

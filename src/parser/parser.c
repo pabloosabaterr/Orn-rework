@@ -4,11 +4,14 @@
 #include "memory/wrapper.h"
 #include "parser/ast.h"
 
+#include <stddef.h>
 #include <string.h>
 
 static struct ast_node *parse_expr(struct parser_context *p);
-static struct ast_node *parse_or(struct parser_context *p);
+static struct ast_node *parse_range(struct parser_context *p);
 static struct ast_node *parse_unary(struct parser_context *p);
+static struct ast_node *parse_stmt(struct parser_context *p);
+static struct token *parse_id_list(struct parser_context *p, size_t *nr);
 
 static struct token advance(struct parser_context *p)
 {
@@ -108,6 +111,9 @@ static struct ast_node *parse_type(struct parser_context *p)
 	return parse_base_type(p);
 }
 
+/*
+ * Expressions
+ */
 static struct ast_node *parse_numbers(struct parser_context *p,
 				      int base, int prefix_len)
 {
@@ -206,7 +212,7 @@ static struct ast_node *parse_primary(struct parser_context *p)
 		return ast_node_new(&p->arena, NODE_NULL, tok);
 	case TK_ID:
 		advance(p);
-		if (check(p, TK_LBRACE)) {
+		if (!p->no_struct_init && check(p, TK_LBRACE)) {
 			size_t nr = 0, alloc = 0;
 			advance(p);
 			node = ast_node_new(&p->arena, NODE_STRUCT_INIT, tok);
@@ -293,7 +299,7 @@ static struct ast_node *parse_postfix(struct parser_context *p)
 
 static struct ast_node *parse_assign(struct parser_context *p)
 {
-	struct ast_node *left = parse_or(p);
+	struct ast_node *left = parse_range(p);
 
 	if (check(p, TK_EQUAL) || check(p, TK_PLUSEQ) ||
 	    check(p, TK_MINUSEQ) || check(p, TK_STAREQ) ||
@@ -493,6 +499,265 @@ static struct ast_node *parse_or(struct parser_context *p)
 	return left;
 }
 
+static struct ast_node *parse_range(struct parser_context *p)
+{
+	struct ast_node *left = parse_or(p);
+
+	if (check(p, TK_RANGE)) {
+		struct token op = advance(p);
+		struct ast_node *node = ast_node_new(&p->arena, NODE_BINARY, op);
+		node->binary.type = token_to_op(op.type);
+		node->binary.left = left;
+		node->binary.right = parse_or(p);
+		return node;
+	}
+	return left;
+}
+
+/*
+ * STATEMENTS
+ */
+
+static inline struct ast_node *parse_expr_no_struct(struct parser_context *p)
+{
+	struct ast_node *node;
+
+	p->no_struct_init = 1;
+	node = parse_expr(p);
+	p->no_struct_init = 0;
+	return node;
+}
+
+static struct ast_node *parse_incdec(struct parser_context *p, struct ast_node *expr)
+{
+	struct token op = advance(p);
+	struct ast_node *node = ast_node_new(&p->arena, NODE_INCDEC, op);
+	node->incdec.type = token_to_op(op.type);
+	node->incdec.target = expr;
+	expect(p, TK_SEMICOLON);
+	return node;
+}
+
+static struct ast_node *parse_expr_stmt(struct parser_context *p)
+{
+	struct ast_node *expr = parse_expr(p);
+
+	if (check(p, TK_INCREMENT) || check(p, TK_DECREMENT))
+		return parse_incdec(p, expr);
+
+	struct ast_node *node = ast_node_new(&p->arena, NODE_EXPR_STMT, p->current);
+	node->expr_stmt.expr = expr;
+	expect(p, TK_SEMICOLON);
+	return node;
+}
+
+static struct ast_node *parse_match_pattern(struct parser_context *p)
+{
+	struct token tok = p->current;
+	struct ast_node *node;
+
+	if (check(p, TK_UNDERSCORE)) {
+		advance(p);
+		node = ast_node_new(&p->arena, NODE_MATCH_PATTERN, tok);
+		node->match_pattern.is_wildcard = 1;
+		return node;
+	}
+
+	/*
+	 * Is id tuple constructor
+	 */
+	if (check(p, TK_ID)) {
+		struct token id = advance(p);
+		node = ast_node_new(&p->arena, NODE_MATCH_PATTERN, id);
+		node->match_pattern.expr = ast_node_new(&p->arena, NODE_ID, id);
+
+		if (match(p, TK_LPAREN)) {
+			node->match_pattern.bind = parse_id_list(p, &node->match_pattern.nr_bind);
+			expect(p, TK_RPAREN);
+		}
+		return node;
+	}
+
+	/*
+	 * Is a literal
+	 */
+	node = ast_node_new(&p->arena, NODE_MATCH_PATTERN, tok);
+	node->match_pattern.expr = parse_expr(p);
+	return node;
+}
+
+static struct ast_node *parse_match_arm(struct parser_context *p)
+{
+	struct token tok = p->current;
+	struct ast_node *node = ast_node_new(&p->arena, NODE_MATCH_ARM, tok);
+	node->match_arm.pattern = parse_match_pattern(p);
+	expect(p, TK_FATARROW);
+	node->match_arm.body = parse_stmt(p);
+	return node;
+}
+
+static struct ast_node *parse_match(struct parser_context *p)
+{
+	struct token tok = advance(p);
+	struct ast_node *node = ast_node_new(&p->arena, NODE_MATCH, tok);
+	size_t nr = 0, alloc = 0;
+
+	expect(p, TK_LPAREN);
+	node->match.subj = parse_expr(p);
+	expect(p, TK_RPAREN);
+	expect(p, TK_LBRACE);
+	while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
+		ARENA_ALLOC_GROW(&p->arena, node->match.arms, nr + 1, alloc);
+		node->match.arms[nr++] = parse_match_arm(p);
+	}
+	expect(p, TK_RBRACE);
+	node->match.nr_arm = nr;
+	return node;
+}
+
+static struct ast_node *parse_defer(struct parser_context *p)
+{
+	struct token tok = advance(p);
+	struct ast_node *node = ast_node_new(&p->arena, NODE_DEFER, tok);
+	node->defer_stmt.stmt = parse_stmt(p);
+	return node;
+}
+
+static struct ast_node *parse_continue(struct parser_context *p)
+{
+	struct token tok = advance(p);
+	struct ast_node *node = ast_node_new(&p->arena, NODE_CONTINUE, tok);
+	expect(p, TK_SEMICOLON);
+	return node;
+}
+
+static struct ast_node *parse_break(struct parser_context *p)
+{
+	struct token tok = advance(p);
+	struct ast_node *node = ast_node_new(&p->arena, NODE_BREAK, tok);
+	expect(p, TK_SEMICOLON);
+	return node;
+}
+
+static struct ast_node *parse_return(struct parser_context *p)
+{
+	struct token tok = advance(p);
+	struct ast_node *node = ast_node_new(&p->arena, NODE_RETURN, tok);
+
+	if (!check(p, TK_SEMICOLON))
+		node->return_stmt.expr = parse_expr(p);
+
+	expect(p, TK_SEMICOLON);
+	return node;
+}
+
+static struct ast_node *parse_for(struct parser_context *p)
+{
+	struct ast_node *node;
+
+	advance(p);
+	expect(p, TK_ID);
+	node = ast_node_new(&p->arena, NODE_FOR, p->prev);
+	expect(p, TK_IN);
+	node->for_stmt.range = parse_expr_no_struct(p);
+	node->for_stmt.body = parse_stmt(p);
+	return node;
+}
+
+static struct ast_node *parse_while(struct parser_context *p)
+{
+	struct ast_node *node;
+
+	advance(p);
+	node = ast_node_new(&p->arena, NODE_WHILE, p->prev);
+	node->while_stmt.cond = parse_expr_no_struct(p);
+	node->while_stmt.body = parse_stmt(p);
+	return node;
+}
+
+static struct ast_node *parse_if(struct parser_context *p)
+{
+	struct ast_node *node;
+	size_t nr = 0, alloc_bodies = 0, alloc_conds = 0;
+
+	advance(p);
+	node = ast_node_new(&p->arena, NODE_IF, p->prev);
+	do {
+		ARENA_ALLOC_GROW(&p->arena, node->if_stmt.conds, nr + 1,
+				 alloc_conds);
+
+		ARENA_ALLOC_GROW(&p->arena, node->if_stmt.bodies, nr + 1,
+				 alloc_bodies);
+
+		node->if_stmt.conds[nr] = parse_expr_no_struct(p);
+		node->if_stmt.bodies[nr] = parse_stmt(p);
+		nr++;
+	} while (match(p, TK_ELIF));
+
+	if (match(p, TK_ELSE))
+		node->if_stmt.else_body = parse_stmt(p);
+
+	node->if_stmt.nr_branch = nr;
+	return node;
+}
+
+static struct ast_node *parse_block(struct parser_context *p)
+{
+	struct ast_node *node = ast_node_new(&p->arena, NODE_BLOCK, p->current);
+
+	expect(p, TK_LBRACE);
+	while (!check(p, TK_RBRACE) && !check(p, TK_EOF))
+		ast_node_append(&p->arena, node, parse_stmt(p));
+	expect(p, TK_RBRACE);
+
+	return node;
+}
+
+static struct ast_node *parse_stmt(struct parser_context *p)
+{
+	switch (p->current.type) {
+	case TK_LBRACE:
+		return parse_block(p);
+	case TK_IF:
+		return parse_if(p);
+	case TK_LOOP:
+		return parse_while(p);
+	case TK_FOR:
+		return parse_for(p);
+	case TK_RETURN:
+		return parse_return(p);
+	case TK_BREAK:
+		return parse_break(p);
+	case TK_CONTINUE:
+		return parse_continue(p);
+	case TK_DEFER:
+		return parse_defer(p);
+	case TK_MATCH:
+		return parse_match(p);
+	default:
+		return parse_expr_stmt(p);
+	}
+}
+
+/*
+ * DECLARATIONS
+ */
+
+static struct token *parse_id_list(struct parser_context *p, size_t *nr)
+{
+	struct token *list = NULL;
+	size_t c = 0, alloc = 0;
+
+	do {
+		expect(p, TK_ID);
+		ARENA_ALLOC_GROW(&p->arena, list, c + 1, alloc);
+		list[c++] = p->prev;
+	} while (match(p, TK_COMMA));
+
+	*nr = c;
+	return list;
+}
+
 void parser_init(struct parser_context *p, struct lexer_context *lexer)
 {
 	memset(p, 0, sizeof(*p));
@@ -501,9 +766,14 @@ void parser_init(struct parser_context *p, struct lexer_context *lexer)
 	p->current = token_next(lexer);
 }
 
-struct ast_node *parser_parse_expr(struct parser_context *p)
+struct ast_node *parser_parse(struct parser_context *p)
 {
-	return parse_expr(p);
+	struct ast_node *program = ast_node_new(&p->arena, NODE_PROGRAM, p->current);
+
+	while (!check(p, TK_EOF))
+		ast_node_append(&p->arena, program, parse_stmt(p));
+
+	return program;
 }
 
 void parser_free(struct parser_context *p)

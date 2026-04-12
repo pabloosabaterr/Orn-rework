@@ -76,8 +76,8 @@ int main(int argc, char **argv)
 	if (ctx->dump_ast) {
 		struct parser_context parser;
 		parser_init(&parser, &ctx->lexer);
-		struct ast_node *expr = parser_parse_expr(&parser);
-		ast_dump(expr);
+		struct ast_node *program = parser_parse(&parser);
+		ast_dump(program);
 		parser_free(&parser);
 		free(src);
 		free(ctx);

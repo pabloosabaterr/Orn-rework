@@ -13,10 +13,23 @@ struct parser_context {
 	struct token prev;
 	struct arena arena;
 	int errors;
+	/*
+	 * If statements doesn't use parentheses so it is ambiguous whether if
+	 * it's a if or a struct init.
+	 *
+	 * if x {...}
+	 *
+	 * and
+	 *
+	 * x {...}
+	 *
+	 * The flag allows a struct init to be parsed.
+	 */
+	unsigned no_struct_init:1;
 };
 
 void parser_init(struct parser_context *ctx, struct lexer_context *lexer);
-struct ast_node *parser_parse_expr(struct parser_context *parser);
+struct ast_node *parser_parse(struct parser_context *parser);
 void parser_free(struct parser_context *parser);
 
 #endif

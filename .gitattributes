@@ -1,3 +1,4 @@
 * whitespace=trail,space
 *.[ch] whitespace=indent,trail,space,incomplete diff=cpp
 *.sh whitespace=indent,trail,space,incomplete text eol=lf
+tests/*.sh whitespace=-indent-with-non-tab
