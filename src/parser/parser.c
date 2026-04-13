@@ -41,26 +41,6 @@ static void expect(struct parser_context *p, enum token_type type)
 		    p->current.col);
 }
 
-static struct ast_node *parse_base_type(struct parser_context *p)
-{
-	struct token tok = advance(p);
-
-	switch (tok.type) {
-	case TK_INT:
-	case TK_UINT:
-	case TK_FLOATING:
-	case TK_STRING:
-	case TK_CHAR:
-	case TK_BOOL:
-	case TK_NULL:
-	case TK_VOID:
-	case TK_ID:
-		return ast_node_new(&p->arena, NODE_TYPE_NAME, tok);
-	default:
-		die("expected type at %d:%d", tok.line, tok.col);
-	}
-}
-
 static struct ast_node *parse_type(struct parser_context *p)
 {
 	struct ast_node *node;
@@ -108,7 +88,21 @@ static struct ast_node *parse_type(struct parser_context *p)
 		return node;
 	}
 
-	return parse_base_type(p);
+	tok = advance(p);
+	switch (tok.type) {
+	case TK_INT:
+	case TK_UINT:
+	case TK_FLOATING:
+	case TK_STRING:
+	case TK_CHAR:
+	case TK_BOOL:
+	case TK_NULL:
+	case TK_VOID:
+	case TK_ID:
+		return ast_node_new(&p->arena, NODE_TYPE_NAME, tok);
+	default:
+		die("expected type at %d:%d", tok.line, tok.col);
+	}
 }
 
 /*
@@ -758,6 +752,240 @@ static struct token *parse_id_list(struct parser_context *p, size_t *nr)
 	return list;
 }
 
+static struct ast_node *parse_function(struct parser_context *p)
+{
+	struct ast_node *node;
+	size_t nr = 0, alloc = 0;
+
+	expect(p, TK_FN);
+	expect(p, TK_ID);
+	node = ast_node_new(&p->arena, NODE_FN_DEC, p->prev);
+
+	expect(p, TK_LPAREN);
+	while (!check(p, TK_RPAREN)) {
+		if (match(p, TK_SPREAD)) {
+			node->fn_dec.is_variadic = 1;
+			break;
+		}
+		expect(p, TK_ID);
+		struct ast_node *param = ast_node_new(&p->arena, NODE_PARAM,
+						      p->prev);
+		expect(p, TK_COLON);
+		param->typed.ann = parse_type(p);
+
+		ARENA_ALLOC_GROW(&p->arena, node->fn_dec.params, nr + 1, alloc);
+		node->fn_dec.params[nr++] = param;
+		if (!check(p, TK_RPAREN))
+			expect(p, TK_COMMA);
+	}
+	expect(p, TK_RPAREN);
+	node->fn_dec.nr_param = nr;
+
+	if (match(p, TK_RARROW))
+		node->fn_dec.ret_type = parse_type(p);
+
+	node->fn_dec.body = parse_stmt(p);
+	return node;
+}
+
+static struct ast_node *parse_struct(struct parser_context *p)
+{
+	struct ast_node *node;
+	size_t nr = 0, alloc = 0;
+
+	expect(p, TK_STRUCT);
+	expect(p, TK_ID);
+	node = ast_node_new(&p->arena, NODE_STRUCT_DEC, p->prev);
+
+	expect(p, TK_LBRACE);
+	while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
+		expect(p, TK_ID);
+		struct ast_node *field = ast_node_new(&p->arena, NODE_FIELD, p->prev);
+
+		expect(p, TK_COLON);
+		field->typed.ann = parse_type(p);
+
+		ARENA_ALLOC_GROW(&p->arena, node->list.items, nr + 1, alloc);
+		node->list.items[nr++] = field;
+		if (!check(p, TK_RBRACE))
+			expect(p, TK_SEMICOLON);
+	}
+	expect(p, TK_RBRACE);
+	node->list.nr_item = nr;
+	return node;
+}
+
+static struct ast_node *parse_impl(struct parser_context *p)
+{
+	struct ast_node *node;
+	size_t nr = 0, alloc = 0;
+
+	expect(p, TK_IMPL);
+	expect(p, TK_ID);
+	node = ast_node_new(&p->arena, NODE_IMPL_DEC, p->prev);
+	expect(p, TK_LBRACE);
+	while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
+		struct ast_node *fn = parse_function(p);
+		ARENA_ALLOC_GROW(&p->arena, node->list.items, nr + 1, alloc);
+		node->list.items[nr++] = fn;
+	}
+	expect(p, TK_RBRACE);
+	node->list.nr_item = nr;
+	return node;
+}
+
+static struct ast_node *parse_enum(struct parser_context *p)
+{
+	struct ast_node *node;
+	size_t nr = 0, alloc = 0;
+
+	expect(p, TK_ENUM);
+	expect(p, TK_ID);
+	node = ast_node_new(&p->arena, NODE_ENUM_DEC, p->prev);
+	expect(p, TK_LBRACE);
+	while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
+		size_t nr_assocs = 0, alloc_assocs = 0;
+
+		expect(p, TK_ID);
+		struct ast_node *member = ast_node_new(&p->arena, NODE_ENUM_MEMBER, p->prev);
+
+		if (match(p, TK_LPAREN)) {
+			while (!check(p, TK_RPAREN) && !check(p, TK_EOF)) {
+				ARENA_ALLOC_GROW(&p->arena,
+						 member->enum_member.assocs,
+						 nr_assocs + 1,
+						 alloc_assocs);
+
+				member->enum_member.assocs[nr_assocs++] = parse_type(p);
+
+				if (!check(p, TK_RPAREN))
+					expect(p, TK_COMMA);
+			}
+			expect(p, TK_RPAREN);
+			member->enum_member.nr_assoc = nr_assocs;
+		}
+
+		if (match(p, TK_EQUAL))
+			member->enum_member.val = parse_expr(p);
+
+		ARENA_ALLOC_GROW(&p->arena, node->list.items, nr + 1, alloc);
+		node->list.items[nr++] = member;
+
+		if (!check(p, TK_RBRACE))
+			expect(p, TK_COMMA);
+	}
+	expect(p, TK_RBRACE);
+	node->list.nr_item = nr;
+	return node;
+}
+
+static struct ast_node *parse_type_dec(struct parser_context *p)
+{
+	struct ast_node *node;
+
+	expect(p, TK_TYPE);
+	expect(p, TK_ID);
+	node = ast_node_new(&p->arena, NODE_TYPE_DEC, p->prev);
+
+	expect(p, TK_EQUAL);
+	node->type_dec.type = parse_type(p);
+	expect(p, TK_SEMICOLON);
+	return node;
+}
+
+/*
+ * There can be 3 types of let declarations:
+ *
+ *   1. let foo: type = init;
+ *   2. let foo: type;
+ *   3. let foo = init; (here type will adopt the type from init)
+ *
+ * Therefore, there cannot be a 'let foo;' declaration due to not being something
+ * to get the type from nor explicitly a type to relate to.
+ */
+static struct ast_node *parse_let(struct parser_context *p)
+{
+	struct ast_node *node;
+
+	expect(p, TK_LET);
+	node = ast_node_new(&p->arena, NODE_LET_DEC, p->prev);
+
+	if (match(p, TK_LPAREN)) {
+		node->let_dec.name = parse_id_list(p, &node->let_dec.nr_name);
+		expect(p, TK_RPAREN);
+	} else {
+		expect(p, TK_ID);
+		node->let_dec.name = arena_alloc(&p->arena, sizeof(struct token));
+		*node->let_dec.name = p->prev;
+		node->let_dec.nr_name = 1;
+	}
+
+	if (match(p, TK_COLON)) {
+		node->let_dec.ann = parse_type(p);
+		if (match(p, TK_EQUAL))
+			node->let_dec.init = parse_expr(p);
+	} else if (match(p, TK_EQUAL)) {
+		node->let_dec.init = parse_expr(p);
+	} else {
+		die("let declaration needs a type or a initializer at least at %d:%d",
+		    p->current.line,
+		    p->current.col);
+	}
+
+	expect(p, TK_SEMICOLON);
+	return node;
+}
+
+static struct ast_node *parse_const(struct parser_context *p)
+{
+	struct ast_node *node;
+
+	expect(p, TK_CONST);
+	expect(p, TK_ID);
+	node = ast_node_new(&p->arena, NODE_CONST_DEC, p->prev);
+	expect(p, TK_COLON);
+	node->const_dec.ann = parse_type(p);
+	expect(p, TK_EQUAL);
+	node->const_dec.init = parse_expr(p);
+	expect(p, TK_SEMICOLON);
+	return node;
+}
+
+static struct ast_node *parse_import(struct parser_context *p)
+{
+	struct ast_node *node;
+
+	expect(p, TK_IMPORT);
+	expect(p, TK_STRINGLIT);
+	node = ast_node_new(&p->arena, NODE_IMPORT_DEC, p->prev);
+	expect(p, TK_SEMICOLON);
+	return node;
+}
+
+static struct ast_node *parse_dec(struct parser_context *p)
+{
+	switch (p->current.type) {
+	case TK_FN:
+		return parse_function(p);
+	case TK_STRUCT:
+		return parse_struct(p);
+	case TK_IMPL:
+		return parse_impl(p);
+	case TK_ENUM:
+		return parse_enum(p);
+	case TK_TYPE:
+		return parse_type_dec(p);
+	case TK_LET:
+		return parse_let(p);
+	case TK_CONST:
+		return parse_const(p);
+	case TK_IMPORT:
+		return parse_import(p);
+	default:
+		return parse_stmt(p);
+	}
+}
+
 void parser_init(struct parser_context *p, struct lexer_context *lexer)
 {
 	memset(p, 0, sizeof(*p));
@@ -766,12 +994,18 @@ void parser_init(struct parser_context *p, struct lexer_context *lexer)
 	p->current = token_next(lexer);
 }
 
+/*
+ * declarations -> statements | expressions
+ *
+ * An expression cannot live on its own, they live through statements or
+ * declarations
+ */
 struct ast_node *parser_parse(struct parser_context *p)
 {
 	struct ast_node *program = ast_node_new(&p->arena, NODE_PROGRAM, p->current);
 
 	while (!check(p, TK_EOF))
-		ast_node_append(&p->arena, program, parse_stmt(p));
+		ast_node_append(&p->arena, program, parse_dec(p));
 
 	return program;
 }

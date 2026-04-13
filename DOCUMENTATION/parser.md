@@ -72,8 +72,6 @@ param = ID COLON type
 field_list = ID COLON type SEMI
 
 id_list = ID (COMMA ID)*
-
-let_init = LET ID (COLON type EQ expr | COLON type | EQ expr)
 ```
 
 ## Statements
@@ -133,7 +131,7 @@ bitxor_expr = bitand_expr (CARET bitand_expr)*
 
 bitand_expr = eq_expr (AMP eq_expr)*
 
-eq_expr = cmp_expr ((EQEQ | NEQ) cmp_expr)*
+eq_expr = cmp_expr ((CMP | NEQ) cmp_expr)*
 
 cmp_expr = shift_expr ((LT | GT | LE | GE) shift_expr)*
 

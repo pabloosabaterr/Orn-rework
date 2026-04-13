@@ -338,6 +338,83 @@ static void do_ast_dump(struct ast_node *node, int depth, int last, int *prefix)
 			do_ast_dump(node->match_pattern.expr, depth + 1, 1, prefix);
 		}
 		break;
+	case NODE_FN_DEC:
+		fprintf(stdout, "FN_DEC '%.*s'\n",
+			(int)node->tok.len, node->tok.lex);
+		for (i = 0; i < (int)node->fn_dec.nr_param; i++)
+			do_ast_dump(node->fn_dec.params[i], depth + 1, 0, prefix);
+		if (node->fn_dec.ret_type)
+			do_ast_dump(node->fn_dec.ret_type, depth + 1, 0, prefix);
+		do_ast_dump(node->fn_dec.body, depth + 1, 1, prefix);
+		break;
+	case NODE_STRUCT_DEC:
+	case NODE_IMPL_DEC:
+	case NODE_ENUM_DEC:
+		fprintf(stdout, "%s '%.*s'\n",
+			node->type == NODE_STRUCT_DEC ? "STRUCT_DEC" :
+			node->type == NODE_IMPL_DEC   ? "IMPL_DEC" :
+							"ENUM_DEC",
+			(int)node->tok.len, node->tok.lex);
+		for (i = 0; i < (int)node->list.nr_item; i++)
+			do_ast_dump(node->list.items[i], depth + 1,
+				    i == (int)node->list.nr_item - 1, prefix);
+		break;
+	case NODE_ENUM_MEMBER:
+		fprintf(stdout, "ENUM_MEMBER '%.*s'\n",
+			(int)node->tok.len, node->tok.lex);
+		for (i = 0; i < (int)node->enum_member.nr_assoc; i++)
+			do_ast_dump(node->enum_member.assocs[i], depth + 1,
+				    !node->enum_member.val &&
+					    i == (int)node->enum_member.nr_assoc - 1,
+				    prefix);
+		if (node->enum_member.val)
+			do_ast_dump(node->enum_member.val, depth + 1, 1, prefix);
+		break;
+	case NODE_TYPE_DEC:
+		fprintf(stdout, "TYPE_DEC '%.*s'\n",
+			(int)node->tok.len, node->tok.lex);
+		do_ast_dump(node->type_dec.type, depth + 1, 1, prefix);
+		break;
+	case NODE_LET_DEC:
+		if (node->let_dec.nr_name == 1) {
+			fprintf(stdout, "LET_DEC '%.*s'\n",
+				(int)node->let_dec.name[0].len,
+				node->let_dec.name[0].lex);
+		} else {
+			fprintf(stdout, "LET_DEC (");
+			for (i = 0; i < (int)node->let_dec.nr_name; i++) {
+				if (i > 0)
+					fprintf(stdout, ", ");
+				fprintf(stdout, "%.*s",
+					(int)node->let_dec.name[i].len,
+					node->let_dec.name[i].lex);
+			}
+			fprintf(stdout, ")\n");
+		}
+		if (node->let_dec.ann)
+			do_ast_dump(node->let_dec.ann, depth + 1,
+				    !node->let_dec.init, prefix);
+		if (node->let_dec.init)
+			do_ast_dump(node->let_dec.init, depth + 1, 1, prefix);
+		break;
+	case NODE_CONST_DEC:
+		fprintf(stdout, "CONST_DEC '%.*s'\n",
+			(int)node->tok.len, node->tok.lex);
+		do_ast_dump(node->const_dec.ann, depth + 1, 0, prefix);
+		do_ast_dump(node->const_dec.init, depth + 1, 1, prefix);
+		break;
+	case NODE_IMPORT_DEC:
+		fprintf(stdout, "IMPORT '%.*s'\n",
+			(int)node->tok.len - 2, node->tok.lex + 1);
+		break;
+	case NODE_PARAM:
+	case NODE_FIELD:
+		fprintf(stdout, "%s '%.*s'\n",
+			node->type == NODE_PARAM ? "PARAM" : "FIELD",
+			(int)node->tok.len, node->tok.lex);
+		if (node->typed.ann)
+			do_ast_dump(node->typed.ann, depth + 1, 1, prefix);
+		break;
 	default:
 		printf("UNKNOWN node_type=%d\n", node->type);
 		break;
