@@ -2,3 +2,4 @@ build/
 *.o
 *.d
 compile_commands.json
+docs/book/

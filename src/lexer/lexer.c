@@ -13,7 +13,8 @@ struct token_type_name {
 static const struct token_type_name keyword_table[] = {
 	{ TK_INT, "int" },
 	{ TK_UINT, "unsigned" },
-	{ TK_FLOATING, "floating" },
+	{ TK_FLOAT, "float" },
+	{ TK_DOUBLE, "double" },
 	{ TK_BOOL, "bool" },
 	{ TK_VOID, "void" },
 	{ TK_CHAR, "char" },

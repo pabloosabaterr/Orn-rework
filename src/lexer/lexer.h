@@ -8,6 +8,7 @@ enum token_type {
 	TK_ERROR,
 	TK_ID,
 	TK_NUMBER,
+	TK_FLOATING, /* A floating point literal unresolved size */
 	TK_STRINGLIT,
 	TK_CHARLIT,
 
@@ -16,7 +17,8 @@ enum token_type {
 	TK_OCTAL,
 	TK_BINARY,
 	TK_UINT,
-	TK_FLOATING,
+	TK_FLOAT,
+	TK_DOUBLE,
 	TK_BOOL,
 	TK_VOID,
 	TK_CHAR,

@@ -29,6 +29,8 @@ CHAR_LITERAL = "'" (escape | [^'\\]) "'"
 escape = "\\" [nrt0\\'"x]
        | "\\x" [0-9a-fA-F]{2}
 
+bool_literals: TRUE | FALSE
+
 ID = [a-zA-Z_] [a-zA-Z0-9_]*
 ```
 
@@ -153,7 +155,7 @@ call_args = LPAREN arg_list? RPAREN
 
 index_access = LBRACKET expr (COLON expr?)? RBRACKET
 
-member_access = DOT ID
+member_access = DOT (ID | NUMBER)
 
 ns_access = NAMESPACE ID
 
@@ -170,6 +172,7 @@ primary_expr = ID
              | SYSCALL LPAREN arg_list? RPAREN
              | ID LBRACE field_init_list RBRACE
              | LBRACKET arg_list? RBRACKET
+	     | NAMESPACE ID
              | NULL
 ```
 
@@ -183,7 +186,7 @@ type = STAR type
 
 type_list = type (COMMA type)*
 
-base_type = INT | UINT | FLOAT | DOUBLE | BOOL
+base_type = INT | UNSIGNED | FLOAT | DOUBLE | BOOL
           | VOID | CHAR | STRING | ID
 ```
 

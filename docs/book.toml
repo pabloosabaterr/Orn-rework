@@ -1,0 +1,7 @@
+[book]
+title = "Orn Language Reference"
+authors = ["Pablo Sabater Jimenez"]
+language = "en"
+
+[build]
+build-dir = "book"
