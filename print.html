@@ -1,0 +1,553 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Orn Language Reference</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="lex-structure.html"><strong aria-hidden="true">2.</strong> Lexical Structure</a></li><li class="chapter-item expanded "><a href="types.html"><strong aria-hidden="true">3.</strong> Types</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Orn Language Reference</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<p>This book is the main reference for the Orn programming language.</p>
+<blockquote>
+<p><strong>Note</strong>:
+For bugs or missings in this book please report an issue in the
+<a href="https://github.com/pabloosabaterr/Orn-rework">Github repo</a></p>
+</blockquote>
+<h2 id="what-is-orn"><a class="header" href="#what-is-orn">What is Orn?</a></h2>
+<p>Orn is a language that aims to look similar to typescript with more
+low-level capabilities along with clear errors.</p>
+<p>Orn aims to be a low-level language that attracts coders from high-level langs
+like typescript but keeping the things that low-level coders like, providing a
+soft learning curve and a good developer experience.</p>
+<h2 id="release"><a class="header" href="#release">Release</a></h2>
+<p>Orn is still being designed and implemented.</p>
+<h2 id="conventions-throughout-the-book"><a class="header" href="#conventions-throughout-the-book">Conventions throughout the book</a></h2>
+<p>thoughout the book, you'll find many syntax explanations and code snippets.
+The syntax explanations are BNF-like rules following this notation:</p>
+<pre><code>	x y     : sequence
+	x | y   : alternative
+	x?      : optional
+	x*      : zero or more
+	x+      : one or more
+	"x"     : literal token
+	UPPER   : token from lexer
+	(x y)   : grouping
+</code></pre>
+<p>example:</p>
+<pre><code>	if_stmt = IF expr stmt (ELIF expr stmt)* (ELSE stmt)?
+</code></pre>
+<p>This means that an <code>if_stmt</code> consists of an <code>TK_IF</code> followed by an <code>expr</code> and a
+<code>stmt</code>, followed by zero or more groups of <code>TK_ELIF expr stmt</code>, and optionally
+an else statement that would be the group <code>TK_ELSE stmt</code>.</p>
+<hr />
+<p><strong>Note</strong> Orn is currently being designed and developed, so it can be that some
+of the syntax in this book it is not implemented yet, but it is intended to be.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="keywords"><a class="header" href="#keywords">Keywords</a></h1>
+<p>Orn has some reserved keywords that they cannot be used as identifiers or
+outside of their proper contexts. These are:</p>
+<ul>
+<li><code>int</code></li>
+<li><code>unsigned</code></li>
+<li><code>double</code></li>
+<li><code>float</code></li>
+<li><code>bool</code></li>
+<li><code>void</code></li>
+<li><code>char</code></li>
+<li><code>string</code></li>
+<li><code>if</code></li>
+<li><code>else</code></li>
+<li><code>elif</code></li>
+<li><code>while</code></li>
+<li><code>ret</code></li>
+<li><code>break</code></li>
+<li><code>continue</code></li>
+<li><code>struct</code></li>
+<li><code>enum</code></li>
+<li><code>import</code></li>
+<li><code>true</code></li>
+<li><code>false</code></li>
+<li><code>let</code></li>
+<li><code>const</code></li>
+<li><code>fn</code></li>
+<li><code>sizeof</code></li>
+<li><code>syscall</code></li>
+<li><code>for</code></li>
+<li><code>in</code></li>
+<li><code>match</code></li>
+<li><code>defer</code></li>
+<li><code>impl</code></li>
+<li><code>type</code></li>
+<li><code>as</code></li>
+<li><code>null</code></li>
+</ul>
+<h2 id="identifiers"><a class="header" href="#identifiers">Identifiers</a></h2>
+<pre><code>IDENTIFIER = [a-zA-Z_] [a-zA-Z0-9_]*
+</code></pre>
+<p>Identifiers that are are valid:</p>
+<ul>
+<li><code>foo</code></li>
+<li><code>_foo</code></li>
+<li><code>foo123</code></li>
+<li><code>foo_bar</code></li>
+<li><code>FOO</code></li>
+</ul>
+<blockquote>
+<p>Identifiers that start with an underscore are usually used for intentionally
+unused variables, for example:</p>
+</blockquote>
+<pre><code class="language-orn">fn foo() {
+	let _unused = 42;
+}
+</code></pre>
+<p>This won't trigger <code>unused variable</code> warning.</p>
+<h2 id="literals"><a class="header" href="#literals">Literals</a></h2>
+<pre><code>NUMBER = DECIMAL | HEX_LITERAL | OCT_LITERAL | BIN_LITERAL
+
+DECIMAL = [0-9]+ ("." [0-9]+)?
+HEX_LITERAL = "0x" [0-9a-fA-F]+
+OCT_LITERAL = "0o" [0-7]+
+BIN_LITERAL = "0b" [01]+
+
+STRING_LITERAL = "\"" (escape | [^"\\])* "\""
+CHAR_LITERAL = "'" (escape | [^'\\]) "'"
+
+escape = "\\" [nrt0\\'"x] | "\\x" [0-9a-fA-F]{2}
+
+bool_literals = TRUE | FALSE
+</code></pre>
+<p>Number literals:</p>
+<ul>
+<li><code>42</code></li>
+<li><code>3.14</code></li>
+<li><code>0x2A</code></li>
+<li><code>0o52</code></li>
+<li><code>0b101010</code></li>
+</ul>
+<p>Hex, octal and binary becomes decimal numbers at compile time at the parser.</p>
+<p>String literals:</p>
+<ul>
+<li><code>"Hello, world!"</code></li>
+<li><code>"Line 1\nLine 2"</code></li>
+</ul>
+<p>Character literals:</p>
+<ul>
+<li><code>'a'</code></li>
+<li><code>'\n'</code></li>
+</ul>
+<p>Bool literals:</p>
+<ul>
+<li><code>true</code></li>
+<li><code>false</code></li>
+</ul>
+<h2 id="operators-and-punctuation"><a class="header" href="#operators-and-punctuation">Operators and Punctuation</a></h2>
+<h3 id="punctuation"><a class="header" href="#punctuation">Punctuation</a></h3>
+<p>Punctuation tokens are used as operators, separators, and delimiters.</p>
+<pre><code>PUNCTUATION = "..."
+            | "+="
+            | "-="
+            | "*="
+            | "/="
+            | "%="
+            | "=="
+            | "!="
+            | "&lt;="
+            | "&gt;="
+            | "&lt;&lt;"
+            | "&gt;&gt;"
+            | "&amp;&amp;"
+            | "||"
+            | "-&gt;"
+            | "&lt;-"
+            | "=&gt;"
+            | "::"
+            | ".."
+            | "++"
+            | "--"
+            | "+"
+            | "-"
+            | "*"
+            | "/"
+            | "%"
+            | "!"
+            | "~"
+            | "&amp;"
+            | "|"
+            | "^"
+            | "="
+            | "&lt;"
+            | "&gt;"
+            | "."
+            | ","
+            | ":"
+            | ";"
+            | "?"
+            | "_"
+            | "("
+            | ")"
+            | "{"
+            | "}"
+            | "["
+            | "]"
+</code></pre>
+<p>Multi character tokens are matched longest first.</p>
+<h3 id="delimiters"><a class="header" href="#delimiters">Delimiters</a></h3>
+<p>Bracket punctuation must always appear in matched pairs. The three
+types are:</p>
+<div class="table-wrapper"><table><thead><tr><th>Bracket</th><th>Name</th></tr></thead><tbody>
+<tr><td><code>{ }</code></td><td>braces</td></tr>
+<tr><td><code>[ ]</code></td><td>brackets</td></tr>
+<tr><td><code>( )</code></td><td>parentheses</td></tr>
+</tbody></table>
+</div>
+<p>An unmatched delimiter is a compile error.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="types"><a class="header" href="#types">Types</a></h1>
+<p>Every value in Orn has a type that it´s known at compile time.</p>
+<h2 id="syntax"><a class="header" href="#syntax">Syntax</a></h2>
+<pre><code>type = STAR type
+     | LBRACKET type SEMI NUMBER RBRACKET
+     | LPAREN type_list COMMA? RPAREN
+     | base_type
+
+type_list = type (COMMA type)*
+
+base_type = INT
+          | UINT
+          | FLOAT
+          | DOUBLE
+          | BOOL
+          | VOID
+          | CHAR
+          | STRING
+          | ID
+</code></pre>
+<h2 id="primitives"><a class="header" href="#primitives">Primitives</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>int</code></td><td>Signed integer</td></tr>
+<tr><td><code>uint</code></td><td>Unsigned integer current keyword is <code>unsigned</code></td></tr>
+<tr><td><code>float</code></td><td>Single precision floating point</td></tr>
+<tr><td><code>double</code></td><td>Double precision floating point</td></tr>
+<tr><td><code>bool</code></td><td>Boolean</td></tr>
+<tr><td><code>char</code></td><td>Character</td></tr>
+<tr><td><code>string</code></td><td>String</td></tr>
+<tr><td><code>void</code></td><td>No value</td></tr>
+</tbody></table>
+</div>
+<p><code>void</code> is used for functions that do not return a value (omitting the return
+type works too). It cannot be used for variables or parameters.</p>
+<h2 id="pointers"><a class="header" href="#pointers">Pointers</a></h2>
+<p>A pointer type is writtes as <code>*</code> followed by the type it points to.</p>
+<pre><code>pointer_type = STAR type
+</code></pre>
+<p><code>&amp;</code> works to take the address of a value and <code>*</code> to dereference it.</p>
+<h2 id="array-types"><a class="header" href="#array-types">Array types</a></h2>
+<pre><code>array_type = LBRACKET type SEMI NUMBER RBRACKET
+</code></pre>
+<p>e.g:</p>
+<pre><code>let arr: [int; 5] = [1, 2, 3, 4, 5];
+</code></pre>
+<p><strong>Arrays and assignment behavior</strong></p>
+<pre><code>let a: [int; 3] = [1, 2, 3];
+A) let foo = a;
+B) let foo = a[0:3];
+</code></pre>
+<ul>
+<li>
+<p>A) <code>foo</code> becomes a pointer to the first element of <code>a</code>. Modifying <code>foo</code>
+modifies <code>a</code>.
+What means that it is the same as <code>let foo = &amp;a[0]</code>. <em>Pass by reference</em>.</p>
+</li>
+<li>
+<p>B) <code>foo</code> by slicing at the index of the array, it enforces the creation of
+a new array with the sliced elements. Modifying <code>foo</code> does not modify <code>a</code>.
+<em>Pass by value</em>.</p>
+</li>
+</ul>
+<p>This means that <code>let foo = a[0:n]</code> is a way to duplicate a whole known size
+array.</p>
+<h2 id="tuples"><a class="header" href="#tuples">Tuples</a></h2>
+<p>A tuple groups multiple types together in a fixed order.</p>
+<pre><code>tuple_type = LPAREN type_list COMMA? RPAREN
+</code></pre>
+<p>e.g:</p>
+<pre><code>let point: (int, string) = (10, "hello");
+</code></pre>
+<p>Tuple fields can be accesed by two ways:</p>
+<ul>
+<li>Destructuring: <code>let (x, y) = point;</code></li>
+<li>Indexing: <code>point.0</code> and <code>point.1</code></li>
+</ul>
+<p>Tuples work as parameters and return types.</p>
+<h2 id="named-types"><a class="header" href="#named-types">Named types</a></h2>
+<p>Any identifier can appear where a type is expected.</p>
+<pre><code>struct Point {
+	x: int;
+	y: int;
+}
+
+let p: Point = Point { x: 10, y: 20 };
+
+or (to avoid redundancy)
+
+let p = Point { x: 10, y: 20 };
+</code></pre>
+<p>This is good practice to avoid noise and keep the code clean.</p>
+<pre><code>enum Color {
+	Red,
+	Green,
+	Blue,
+}
+</code></pre>
+<p>There are multiple ways to access enum members:</p>
+<pre><code>let c: Color = ::Red;
+let c: Color = Color::Red;
+let c = Color::Red;
+</code></pre>
+<p>It is not accepted</p>
+<pre><code>let c = ::Red;
+</code></pre>
+<p>Orn aims to be light but preserve as much expressiveness as possible.</p>
+<h2 id="type-aliases"><a class="header" href="#type-aliases">Type aliases</a></h2>
+<pre><code>type_dec = TYPE ID EQ type SEMI
+</code></pre>
+<pre><code>type Byte = unsigned;
+type Pair = (int, int);
+
+let p: Pair = (10, 20);
+</code></pre>
+<p>The alias and the original type are interchangeable. This is a compile time
+feature to improve readability and expressiveness it is not a new type.</p>
+<h2 id="casting"><a class="header" href="#casting">Casting</a></h2>
+<p>Casting is done with the <code>as</code> operator:</p>
+<pre><code>let x: int = 65;
+let ch: char = x as char;     // 'A'
+let f: float = x as float;    // 65.0
+</code></pre>
+<h2 id="where-types-appear"><a class="header" href="#where-types-appear">Where types appear</a></h2>
+<p>Types appears in several parts of the code and they are a fundamental part of
+the language. They are used at:</p>
+<ul>
+<li>Variable declarations: <code>let x: int = 42;</code></li>
+<li>Constants: <code>const PI: double = 3.14159;</code></li>
+<li>Function parameters and return types: <code>fn add(a: int, b: int) -&gt; int {...}</code></li>
+<li>Struct fields: <code>struct Point { x: int; y: int; }</code> (Struct is a type itself)</li>
+<li>Enum declarations: <code>enum Color { Red, Green, Blue }</code> (Enum is a type itself)</li>
+<li>Type aliases: <code>type Byte = unsigned;</code></li>
+<li>Casts: <code>let ch: char = x as char;</code></li>
+<li>sizeof operator: <code>let size = sizeof(int);</code></li>
+</ul>
+<p>When a let declaration does not specify a type, it adopts the type from the
+right side of the assignment. This is a type of inference that allows to omit
+many redundant type annotations.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+    </div>
+    </body>
+</html>
