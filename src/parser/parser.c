@@ -226,6 +226,12 @@ static struct ast_node *parse_primary(struct parser_context *p)
 		node = parse_expr(p);
 		expect(p, TK_RPAREN);
 		return node;
+	case TK_NAMESPACE:
+		advance(p);
+		expect(p, TK_ID);
+		node = ast_node_new(&p->arena, NODE_NAMESPACE, p->prev);
+		node->namespace.left = NULL;
+		return node;
 	default:
 		die("unexpected token at %d:%d", tok.line, tok.col);
 	}
@@ -242,18 +248,21 @@ static struct ast_node *parse_postfix(struct parser_context *p)
 	for (;;) {
 		if (check(p, TK_DOT)) {
 			advance(p);
-			expect(p, TK_ID);
-			struct ast_node *m = ast_node_new(&p->arena,
-							  NODE_MEMBER,
-							  p->prev);
-			m->member.left = node;
-			node = m;
+			if (check(p, TK_ID) || check(p, TK_NUMBER)) {
+				struct ast_node *m = ast_node_new(&p->arena,
+								  NODE_MEMBER,
+								  advance(p));
+				m->member.left = node;
+				node = m;
+			} else {
+				die("expected field name or tuple index at %d:%d",
+				    p->current.line, p->current.col);
+			}
 		} else if (check(p, TK_NAMESPACE)) {
+			struct ast_node *ns;
 			advance(p);
 			expect(p, TK_ID);
-			struct ast_node *ns = ast_node_new(&p->arena,
-							   NODE_NAMESPACE,
-							   p->prev);
+			ns = ast_node_new(&p->arena, NODE_NAMESPACE, p->prev);
 			ns->namespace.left = node;
 			node = ns;
 		} else if (check(p, TK_LPAREN)) {

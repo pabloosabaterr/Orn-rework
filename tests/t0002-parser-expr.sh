@@ -276,4 +276,27 @@ test_expect_success 'syscall' '
 	test_cmp expect actual
 '
 
+test_expect_success 'unqualified namespace access' '
+	echo "::Red;" >input.orn &&
+	cat >expect <<-\EOF &&
+	PROGRAM
+	`-- EXPR_STMT
+	    `-- NAMESPACE '\''Red'\''
+	EOF
+	"$ORN" --dump-ast input.orn >actual &&
+	test_cmp expect actual
+'
+
+test_expect_success 'tuple index access' '
+	echo "pair.0;" >input.orn &&
+	cat >expect <<-\EOF &&
+	PROGRAM
+	`-- EXPR_STMT
+	    `-- MEMBER '\''0'\''
+	        `-- ID '\''pair'\''
+	EOF
+	"$ORN" --dump-ast input.orn >actual &&
+	test_cmp expect actual
+'
+
 test_done
