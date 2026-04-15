@@ -6,23 +6,30 @@
 #include <stdlib.h>
 #include <string.h>
 
-void str_buf_addf(struct str_buf *sb, const char *fmt, ...)
+void str_buf_vaddf(struct str_buf *sb, const char *fmt, va_list ap)
 {
-	va_list ap, ap2;
+	va_list cp;
 	int n;
 
-	va_start(ap, fmt);
-	va_copy(ap2, ap);
-	n = vsnprintf(NULL, 0, fmt, ap);
-	va_end(ap);
+	va_copy(cp, ap);
+	n = vsnprintf(NULL, 0, fmt, cp);
+	va_end(cp);
 
 	if (n < 0)
-		die("str_buf_addf: vsnprintf failed");
+		die("str_buf_vaddf: vsnprintf failed");
 
 	ALLOC_GROW(sb->buf, sb->len + n + 1, sb->size);
-	vsnprintf(sb->buf + sb->len, n + 1, fmt, ap2);
-	va_end(ap2);
+	vsnprintf(sb->buf + sb->len, n + 1, fmt, ap);
 	sb->len += n;
+}
+
+void str_buf_addf(struct str_buf *sb, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	str_buf_vaddf(sb, fmt, ap);
+	va_end(ap);
 }
 
 void str_buf_addstr(struct str_buf *sb, const char *s)
