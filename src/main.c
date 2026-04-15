@@ -1,3 +1,4 @@
+#include "diagnostic/diagnostic.h"
 #include "lexer/lexer.h"
 #include "parser/ast.h"
 #include "parser/parser.h"
@@ -8,6 +9,7 @@
 
 struct compiler_context {
 	struct lexer_context lexer;
+	struct diag_context diag;
 	unsigned dump_tokens:1;
 	unsigned dump_ast:1;
 	unsigned expect_file:1;
@@ -43,7 +45,7 @@ static char *read_file(const char *path)
 int main(int argc, char **argv)
 {
 	struct compiler_context *ctx = xcalloc(1, sizeof(*ctx));
-	char *src = NULL;
+	char *src = NULL, *filename = NULL;
 	int i;
 
 	if (argc < 2)
@@ -57,6 +59,7 @@ int main(int argc, char **argv)
 			ctx->dump_ast = 1;
 		else if (ctx->expect_file) {
 			ctx->expect_file = 0;
+			filename = argv[i];
 			src = read_file(argv[i]);
 		}
 	}
@@ -64,13 +67,18 @@ int main(int argc, char **argv)
 	if (!src)
 		die("no input file provided");
 
-	lexer_init(&ctx->lexer, src);
+	diag_init(&ctx->diag);
+	lexer_init(&ctx->lexer, src, filename, &ctx->diag);
 
 	if (ctx->dump_tokens) {
-		int errors = dump_tokens(&ctx->lexer);
+		int ret;
+		dump_tokens(&ctx->lexer);
+		diag_flush(&ctx->diag, stderr);
+		ret = diag_has_errors(&ctx->diag);
+		diag_free(&ctx->diag);
 		free(src);
 		free(ctx);
-		return errors ? 1 : 0;
+		return ret ? 1 : 0;
 	}
 
 	if (ctx->dump_ast) {

@@ -101,6 +101,8 @@ enum token_type {
 struct lexer_context {
 	const char *src;
 	const char *current;
+	const char *file;
+	struct diag_context *diag;
 	int line;
 	int col;
 };
@@ -113,7 +115,8 @@ struct token {
 	int col;
 };
 
-void lexer_init(struct lexer_context *ctx, const char *src);
+void lexer_init(struct lexer_context *ctx, const char *src, const char *f,
+		struct diag_context *d);
 struct token token_next(struct lexer_context *ctx);
 int dump_tokens(struct lexer_context *ctx);
 

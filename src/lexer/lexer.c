@@ -1,4 +1,5 @@
 #include "lexer/lexer.h"
+#include "diagnostic/diagnostic.h"
 #include "memory/wrapper.h"
 
 #include <ctype.h>
@@ -134,6 +135,21 @@ static inline int follow_next(struct lexer_context *lexer, char c)
 	return 0;
 }
 
+static struct token error_token(struct lexer_context *lexer, const char *start,
+				int len, int line, int col, const char *msg)
+{
+	struct source_location loc = {
+		.file = lexer->file,
+		.line_start = start - col,
+		.line = line,
+		.col = col,
+		.len = len,
+	};
+
+	diag_emit(lexer->diag, ERROR, loc, "%s", msg);
+	return (struct token){ TK_ERROR, start, len, line, col };
+}
+
 static int try_ignore_comments(struct lexer_context *lexer)
 {
 	if (is_next(lexer, '/')) {
@@ -142,13 +158,19 @@ static int try_ignore_comments(struct lexer_context *lexer)
 			advance(lexer);
 		return 1;
 	} else if (is_next(lexer, '*')) {
+		int start_line = lexer->line;
+		int start_col = lexer->col - 2;
+		const char *start = lexer->current - 2;
+
 		advance(lexer);
 		while (!is_end(lexer)) {
 			if (follow_next(lexer, '*') && follow_next(lexer, '/'))
 				return 1;
 			advance(lexer);
 		}
-		die("unterminated block comment");
+		error_token(lexer, start, (int)(lexer->current - start),
+			    start_line, start_col, "unterminated block comment");
+		return 1;
 	}
 	return 0;
 }
@@ -233,14 +255,11 @@ static struct token token_number(struct lexer_context *lexer, const char *start)
 			    (size_t)(lexer->current - start));
 }
 
-static struct token error_token(struct lexer_context *lexer, const char *start, int len, const char *msg)
-{
-	fprintf(stderr, "lexer error [%d:%d]: %s\n", lexer->line, lexer->col, msg);
-	return (struct token){ TK_ERROR, start, len, lexer->line, lexer->col - (int)(len) };
-}
-
 static struct token token_stringlit(struct lexer_context *lexer, const char *start)
 {
+	int start_line = lexer->line;
+	int start_col = lexer->col - 1;
+
 	while (!is_end(lexer) && !is_next(lexer, '"')) {
 		if (is_next(lexer, '\\'))
 			advance(lexer);
@@ -248,7 +267,8 @@ static struct token token_stringlit(struct lexer_context *lexer, const char *sta
 	}
 
 	if (is_end(lexer))
-		return error_token(lexer, start, lexer->current - start, "unterminated string");
+		return error_token(lexer, start, (int)(lexer->current - start),
+				   start_line, start_col, "unterminated string");
 
 	advance(lexer);
 
@@ -257,23 +277,31 @@ static struct token token_stringlit(struct lexer_context *lexer, const char *sta
 
 static struct token token_charlit(struct lexer_context *lexer, const char *start)
 {
+	int start_line = lexer->line;
+	int start_col = lexer->col - 1;
+
 	if (is_next(lexer, '\\'))
 		advance(lexer);
 
 	advance(lexer);
 
 	if (!is_next(lexer, '\''))
-		return error_token(lexer, start, lexer->current - start, "unterminated char literal");
+		return error_token(lexer, start,
+				   (int)(lexer->current - start), start_line,
+				   start_col, "unterminated char literal");
 
 	advance(lexer);
 
 	return create_token(TK_CHARLIT, start, (size_t)(lexer->current - start));
 }
 
-void lexer_init(struct lexer_context *lexer, const char *src)
+void lexer_init(struct lexer_context *lexer, const char *src, const char *f,
+		struct diag_context *d)
 {
 	lexer->src = src;
 	lexer->current = src;
+	lexer->diag = d;
+	lexer->file = f;
 	lexer->line = 1;
 	lexer->col = 0;
 }
@@ -396,7 +424,8 @@ struct token token_next(struct lexer_context *lexer)
 			return token_id(lexer, start);
 		if (isdigit(c))
 			return token_number(lexer, start);
-		return error_token(lexer, start, 1, "unexpected character");
+		return error_token(lexer, start, 1, lexer->line, lexer->col - 1,
+				   "unexpected character");
 	}
 }
 
