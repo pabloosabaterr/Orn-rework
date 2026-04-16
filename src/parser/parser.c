@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "diagnostic/diagnostic.h"
 #include "lexer/lexer.h"
 #include "memory/arena.h"
 #include "memory/wrapper.h"
@@ -12,6 +13,7 @@ static struct ast_node *parse_range(struct parser_context *p);
 static struct ast_node *parse_unary(struct parser_context *p);
 static struct ast_node *parse_stmt(struct parser_context *p);
 static struct token *parse_id_list(struct parser_context *p, size_t *nr);
+static struct ast_node *parse_dec(struct parser_context *p);
 
 static struct token advance(struct parser_context *p)
 {
@@ -33,12 +35,56 @@ static int match(struct parser_context *p, enum token_type type)
 	return 1;
 }
 
+static struct source_location loc_from_token(struct parser_context *p, struct token tok)
+{
+	return (struct source_location){
+		.file = p->file,
+		.line_start = tok.lex - tok.col,
+		.line = tok.line,
+		.col = tok.col,
+		.len = (int)tok.len,
+	};
+}
+
 static void expect(struct parser_context *p, enum token_type type)
 {
-	if (!match(p, type))
-		die("expected %d but got %d at %d:%d", type,
-		    p->current.type, p->current.line,
-		    p->current.col);
+	if (!match(p, type) && !p->in_panic) {
+		diag_emit(p->diag, ERROR, loc_from_token(p, p->prev),
+			  "expected '%s' after '%.*s'", token_type_pretty(type),
+			  (int)p->prev.len, p->prev.lex);
+		p->in_panic = 1;
+	}
+}
+
+static void synchronize(struct parser_context *p)
+{
+	while (!check(p, TK_EOF)) {
+		if (p->prev.type == TK_SEMICOLON)
+			return;
+		switch (p->current.type) {
+		case TK_FN:
+		case TK_STRUCT:
+		case TK_IMPL:
+		case TK_ENUM:
+		case TK_TYPE:
+		case TK_LET:
+		case TK_CONST:
+		case TK_IMPORT:
+		case TK_LBRACE:
+		case TK_IF:
+		case TK_LOOP:
+		case TK_FOR:
+		case TK_RETURN:
+		case TK_BREAK:
+		case TK_CONTINUE:
+		case TK_DEFER:
+		case TK_MATCH:
+		case TK_RBRACE:
+			return;
+		default:
+			advance(p);
+		}
+	}
 }
 
 static struct ast_node *parse_type(struct parser_context *p)
@@ -101,7 +147,13 @@ static struct ast_node *parse_type(struct parser_context *p)
 	case TK_ID:
 		return ast_node_new(&p->arena, NODE_TYPE_NAME, tok);
 	default:
-		die("expected type at %d:%d", tok.line, tok.col);
+		if (!p->in_panic) {
+			diag_emit(p->diag, ERROR, loc_from_token(p, tok),
+				  "expected type but found '%.*s'",
+				  (int)tok.len, tok.lex);
+			p->in_panic = 1;
+		}
+		return ast_node_new(&p->arena, NODE_ERROR, tok);
 	}
 }
 
@@ -233,7 +285,13 @@ static struct ast_node *parse_primary(struct parser_context *p)
 		node->namespace.left = NULL;
 		return node;
 	default:
-		die("unexpected token at %d:%d", tok.line, tok.col);
+		if (!p->in_panic) {
+			diag_emit(p->diag, ERROR, loc_from_token(p, p->prev),
+				  "expected valid expression after '%.*s'",
+				  (int)p->prev.len, p->prev.lex);
+			p->in_panic = 1;
+		}
+		return ast_node_new(&p->arena, NODE_ERROR, p->prev);
 	}
 }
 
@@ -709,8 +767,12 @@ static struct ast_node *parse_block(struct parser_context *p)
 	struct ast_node *node = ast_node_new(&p->arena, NODE_BLOCK, p->current);
 
 	expect(p, TK_LBRACE);
-	while (!check(p, TK_RBRACE) && !check(p, TK_EOF))
-		ast_node_append(&p->arena, node, parse_stmt(p));
+	while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
+		p->in_panic = 0;
+		ast_node_append(&p->arena, node, parse_dec(p));
+		if (p->in_panic)
+			synchronize(p);
+	}
 	expect(p, TK_RBRACE);
 
 	return node;
@@ -771,7 +833,7 @@ static struct ast_node *parse_function(struct parser_context *p)
 	node = ast_node_new(&p->arena, NODE_FN_DEC, p->prev);
 
 	expect(p, TK_LPAREN);
-	while (!check(p, TK_RPAREN)) {
+	while (!check(p, TK_RPAREN) && !check(p, TK_EOF)) {
 		if (match(p, TK_SPREAD)) {
 			node->fn_dec.is_variadic = 1;
 			break;
@@ -934,11 +996,15 @@ static struct ast_node *parse_let(struct parser_context *p)
 		if (match(p, TK_EQUAL))
 			node->let_dec.init = parse_expr(p);
 	} else if (match(p, TK_EQUAL)) {
-		node->let_dec.init = parse_expr(p);
+		struct ast_node *expr = parse_expr(p);
+		node->let_dec.init = expr;
 	} else {
-		die("let declaration needs a type or a initializer at least at %d:%d",
-		    p->current.line,
-		    p->current.col);
+		if (!p->in_panic) {
+			diag_emit(p->diag, ERROR, loc_from_token(p, p->current),
+				  "let declaration requires a type or initializer");
+			p->in_panic = 1;
+		}
+		return ast_node_new(&p->arena, NODE_ERROR, p->current);
 	}
 
 	expect(p, TK_SEMICOLON);
@@ -995,10 +1061,13 @@ static struct ast_node *parse_dec(struct parser_context *p)
 	}
 }
 
-void parser_init(struct parser_context *p, struct lexer_context *lexer)
+void parser_init(struct parser_context *p, struct lexer_context *lexer,
+		 const char *file, struct diag_context *diag)
 {
 	memset(p, 0, sizeof(*p));
 	p->lexer = lexer;
+	p->file = file;
+	p->diag = diag;
 	arena_init(&p->arena, PARSER_ARENA_DEF);
 	p->current = token_next(lexer);
 }
@@ -1013,8 +1082,12 @@ struct ast_node *parser_parse(struct parser_context *p)
 {
 	struct ast_node *program = ast_node_new(&p->arena, NODE_PROGRAM, p->current);
 
-	while (!check(p, TK_EOF))
+	while (!check(p, TK_EOF)) {
+		p->in_panic = 0;
 		ast_node_append(&p->arena, program, parse_dec(p));
+		if (p->in_panic)
+			synchronize(p);
+	}
 
 	return program;
 }

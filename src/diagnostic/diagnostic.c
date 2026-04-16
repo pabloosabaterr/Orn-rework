@@ -53,7 +53,7 @@ static void diag_render(struct diagnostic *d, FILE *f)
 		[ERROR] = "error",
 	};
 
-	const char *end;
+	const char *end, *c;
 	int padding, i;
 
 	fprintf(f, "%s: %s\n", level_str[d->level], d->msg);
@@ -65,10 +65,20 @@ static void diag_render(struct diagnostic *d, FILE *f)
 
 	padding = snprintf(NULL, 0, "%d", d->loc.line);
 	fprintf(f, " %*s |\n", padding, "");
-	fprintf(f, " %d | %.*s\n", d->loc.line, (int)(end - d->loc.line_start),
-		d->loc.line_start);
+	fprintf(f, " %d | ", d->loc.line);
+	for (c = d->loc.line_start; c < end; c++)
+		if (*c == '\t')
+			fprintf(f, "    ");
+		else
+			fputc(*c, f);
+	fputc('\n', f);
 
-	fprintf(f, " %*s | %*s", padding, "", d->loc.col, "");
+	fprintf(f, " %*s | ", padding, "");
+	for (i = 0; i < d->loc.col; i++)
+		if (d->loc.line_start[i] == '\t')
+			fprintf(f, "    ");
+		else
+			fputc(' ', f);
 	for (i = 0; i < (d->loc.len > 0 ? d->loc.len : 1); i++)
 		fputc(i == 0 ? '^' : '~', f);
 	fputc('\n', f);

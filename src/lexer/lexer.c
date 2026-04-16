@@ -106,6 +106,61 @@ static const struct token_type_name token_names[] = {
 	{ TK_UNDERSCORE, "UNDERSCORE" },
 };
 
+const char *token_type_str(enum token_type type)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(token_names); i++)
+		if (token_names[i].type == type)
+			return token_names[i].str;
+
+	for (i = 0; i < ARRAY_SIZE(keyword_table); i++)
+		if (keyword_table[i].type == type)
+			return keyword_table[i].str;
+
+	return "UNKNOWN";
+}
+
+const char *token_type_pretty(enum token_type type)
+{
+	switch (type) {
+	case TK_SEMICOLON:
+		return ";";
+	case TK_COMMA:
+		return ",";
+	case TK_COLON:
+		return ":";
+	case TK_DOT:
+		return ".";
+	case TK_LPAREN:
+		return "(";
+	case TK_RPAREN:
+		return ")";
+	case TK_LBRACE:
+		return "{";
+	case TK_RBRACE:
+		return "}";
+	case TK_LBRACKET:
+		return "[";
+	case TK_RBRACKET:
+		return "]";
+	case TK_EQUAL:
+		return "=";
+	case TK_RARROW:
+		return "->";
+	case TK_FATARROW:
+		return "=>";
+	case TK_RANGE:
+		return "..";
+	case TK_NAMESPACE:
+		return "::";
+	case TK_EOF:
+		return "end of file";
+	default:
+		return token_type_str(type);
+	}
+}
+
 static inline int is_next(struct lexer_context *lexer, char c)
 {
 	return *lexer->current == c;
@@ -159,8 +214,8 @@ static int try_ignore_comments(struct lexer_context *lexer)
 		return 1;
 	} else if (is_next(lexer, '*')) {
 		int start_line = lexer->line;
-		int start_col = lexer->col - 2;
-		const char *start = lexer->current - 2;
+		int start_col = lexer->col;
+		const char *start = lexer->current - 1;
 
 		advance(lexer);
 		while (!is_end(lexer)) {
@@ -168,8 +223,7 @@ static int try_ignore_comments(struct lexer_context *lexer)
 				return 1;
 			advance(lexer);
 		}
-		error_token(lexer, start, (int)(lexer->current - start),
-			    start_line, start_col, "unterminated block comment");
+		error_token(lexer, start, 2, start_line, start_col, "unterminated block comment");
 		return 1;
 	}
 	return 0;
@@ -427,21 +481,6 @@ struct token token_next(struct lexer_context *lexer)
 		return error_token(lexer, start, 1, lexer->line, lexer->col - 1,
 				   "unexpected character");
 	}
-}
-
-static const char *token_type_str(enum token_type type)
-{
-	size_t i;
-
-	for (i = 0; i < ARRAY_SIZE(token_names); i++)
-		if (token_names[i].type == type)
-			return token_names[i].str;
-
-	for (i = 0; i < ARRAY_SIZE(keyword_table); i++)
-		if (keyword_table[i].type == type)
-			return keyword_table[i].str;
-
-	return "UNKNOWN";
 }
 
 int dump_tokens(struct lexer_context *lexer)

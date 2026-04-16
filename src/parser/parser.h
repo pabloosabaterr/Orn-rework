@@ -9,6 +9,8 @@
 
 struct parser_context {
 	struct lexer_context *lexer;
+	struct diag_context *diag;
+	const char* file;
 	struct token current;
 	struct token prev;
 	struct arena arena;
@@ -26,9 +28,11 @@ struct parser_context {
 	 * The flag allows a struct init to be parsed.
 	 */
 	unsigned no_struct_init:1;
+	unsigned in_panic:1;
 };
 
-void parser_init(struct parser_context *ctx, struct lexer_context *lexer);
+void parser_init(struct parser_context *ctx, struct lexer_context *lexer,
+		 const char* file, struct diag_context *diag);
 struct ast_node *parser_parse(struct parser_context *parser);
 void parser_free(struct parser_context *parser);
 

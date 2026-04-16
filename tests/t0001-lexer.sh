@@ -24,6 +24,7 @@ test_expect_success 'basic tokenization' '
 	42 [NUMBER] - 2:13
 	; [SEMICOLON] - 2:15
 	} [RBRACE] - 3:0
+	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
 '
@@ -46,6 +47,7 @@ test_expect_success 'multi-character operators' '
 	>= [GE] - 1:27
 	&& [AND] - 1:30
 	|| [OR] - 1:33
+	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
 '
@@ -68,6 +70,7 @@ test_expect_success 'single-character operators' '
 	. [DOT] - 1:18
 	, [COMMA] - 1:20
 	; [SEMICOLON] - 1:22
+	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
 '
@@ -83,6 +86,7 @@ test_expect_success 'keywords are not identifiers' '
 	iffy [ID] - 1:7
 	return [ID] - 1:12
 	returning [ID] - 1:19
+	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
 '
@@ -96,6 +100,7 @@ test_expect_success 'string and char literals' '
 	"hello" [STRING] - 1:0
 	'\''c'\'' [CHAR] - 1:8
 	"world" [STRING] - 1:12
+	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
 '
@@ -122,6 +127,7 @@ test_expect_success 'number literals' '
 	0O17 [OCTAL] - 4:5
 	0b1010 [BINARY] - 5:0
 	0B11 [BINARY] - 5:7
+	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
 '
@@ -135,6 +141,7 @@ test_expect_success 'dot dot is not float' '
 	1 [NUMBER] - 1:0
 	.. [RANGE] - 1:1
 	10 [NUMBER] - 1:3
+	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
 '
@@ -148,6 +155,7 @@ test_expect_success 'line comments are skipped' '
 	cat >expect <<-\EOF &&
 	x [ID] - 1:0
 	y [ID] - 2:0
+	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
 '
@@ -161,6 +169,7 @@ test_expect_success 'block comments are skipped' '
 	cat >expect <<-\EOF &&
 	x [ID] - 1:0
 	y [ID] - 2:19
+	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
 '
@@ -168,25 +177,61 @@ test_expect_success 'block comments are skipped' '
 test_expect_success 'empty input produces no tokens' '
 	>input.orn &&
 	"$ORN" --dump-tokens input.orn >actual &&
-	test_must_be_empty actual
+	cat > expect <<-\EOF &&
+	Program compiled with 0 errors
+	EOF
+	test_cmp expect actual
 '
 
 test_expect_success 'unexpected character reports error' '
 	echo "@" >input.orn &&
-	test_must_fail "$ORN" --dump-tokens input.orn 2>err &&
-	grep "unexpected character" err
+	test_must_fail "$ORN" --dump-tokens input.orn >actual.out 2>actual.err &&
+	cat >expect.out <<-\EOF &&
+	Program compiled with 1 error
+	EOF
+	cat >expect.err <<-\EOF &&
+	error: unexpected character
+	 --> input.orn:1:0
+	   |
+	 1 | @
+	   | ^
+	EOF
+	test_cmp expect.out actual.out &&
+	test_cmp expect.err actual.err
 '
 
 test_expect_success 'unterminated string reports error' '
 	printf "\"\\n" >input.orn &&
-	test_must_fail "$ORN" --dump-tokens input.orn 2>err &&
-	grep "unterminated string" err
+	test_must_fail "$ORN" --dump-tokens input.orn >actual.out 2>actual.err &&
+	cat >expect.out <<-\EOF &&
+	Program compiled with 1 error
+	EOF
+	cat >expect.err <<-\EOF &&
+	error: unterminated string
+	 --> input.orn:1:0
+	   |
+	 1 | "
+	   | ^~
+	EOF
+	test_cmp expect.out actual.out &&
+	test_cmp expect.err actual.err
 '
 
 test_expect_success 'unterminated block comment reports error' '
 	echo "/* oops" >input.orn &&
-	test_must_fail "$ORN" --dump-tokens input.orn 2>err &&
-	grep "unterminated" err
+	test_must_fail "$ORN" --dump-tokens input.orn >actual.out 2>actual.err &&
+	cat >expect.out <<-\EOF &&
+	Program compiled with 1 error
+	EOF
+	cat >expect.err <<-\EOF &&
+	error: unterminated block comment
+	 --> input.orn:1:0
+	   |
+	 1 | /* oops
+	   | ^~
+	EOF
+	test_cmp expect.out actual.out &&
+	test_cmp expect.err actual.err
 '
 
 test_done

@@ -8,6 +8,7 @@ test_expect_success 'empty block' '
 	cat >expect <<-\EOF &&
 	PROGRAM
 	`-- BLOCK
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -24,6 +25,7 @@ test_expect_success 'block with statements' '
 	    |   `-- INT 1
 	    `-- EXPR_STMT
 	        `-- INT 2
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -40,6 +42,7 @@ test_expect_success 'if statement' '
 	    `-- BLOCK
 	        `-- EXPR_STMT
 	            `-- INT 1
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -63,6 +66,7 @@ test_expect_success 'if elif else' '
 	    `-- BLOCK
 	        `-- EXPR_STMT
 	            `-- INT 3
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -79,6 +83,7 @@ test_expect_success 'while statement' '
 	    `-- BLOCK
 	        `-- EXPR_STMT
 	            `-- INT 1
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -97,6 +102,7 @@ test_expect_success 'for statement' '
 	    `-- BLOCK
 	        `-- EXPR_STMT
 	            `-- INT 1
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -108,6 +114,7 @@ test_expect_success 'return with value' '
 	PROGRAM
 	`-- RETURN
 	    `-- INT 42
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -118,6 +125,7 @@ test_expect_success 'return without value' '
 	cat >expect <<-\EOF &&
 	PROGRAM
 	`-- RETURN
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -128,6 +136,7 @@ test_expect_success 'break and continue' '
 	cat >expect <<-\EOF &&
 	PROGRAM
 	`-- BREAK
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual &&
@@ -135,6 +144,7 @@ test_expect_success 'break and continue' '
 	cat >expect <<-\EOF &&
 	PROGRAM
 	`-- CONTINUE
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -150,6 +160,7 @@ test_expect_success 'defer statement' '
 	    `-- BLOCK
 	        `-- EXPR_STMT
 	            `-- INT 1
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -161,6 +172,7 @@ test_expect_success 'increment statement' '
 	PROGRAM
 	`-- INCDEC (++)
 	    `-- ID '\''i'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -188,6 +200,7 @@ test_expect_success 'match with literal and wildcard' '
 	        `-- BLOCK
 	            `-- EXPR_STMT
 	                `-- INT 3
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -216,6 +229,7 @@ test_expect_success 'match with constructor pattern' '
 	        `-- BLOCK
 	            `-- EXPR_STMT
 	                `-- INT 0
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -229,6 +243,7 @@ test_expect_success 'expression statement' '
 	    `-- CALL
 	        |-- ID '\''foo'\''
 	        `-- INT 1
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual

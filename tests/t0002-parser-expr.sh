@@ -9,6 +9,7 @@ test_expect_success 'integer literals' '
 	PROGRAM
 	`-- EXPR_STMT
 	    `-- INT 42
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -20,6 +21,7 @@ test_expect_success 'hex octal binary literals' '
 	PROGRAM
 	`-- EXPR_STMT
 	    `-- INT 255
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual &&
@@ -28,6 +30,7 @@ test_expect_success 'hex octal binary literals' '
 	PROGRAM
 	`-- EXPR_STMT
 	    `-- INT 63
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual &&
@@ -36,6 +39,7 @@ test_expect_success 'hex octal binary literals' '
 	PROGRAM
 	`-- EXPR_STMT
 	    `-- INT 10
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -47,6 +51,7 @@ test_expect_success 'float literal' '
 	PROGRAM
 	`-- EXPR_STMT
 	    `-- FLOAT 3.140000
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -60,6 +65,7 @@ test_expect_success 'string literal' '
 	PROGRAM
 	`-- EXPR_STMT
 	    `-- STRING '\''hello'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -71,6 +77,7 @@ test_expect_success 'bool and null literals' '
 	PROGRAM
 	`-- EXPR_STMT
 	    `-- BOOL true
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual &&
@@ -79,6 +86,7 @@ test_expect_success 'bool and null literals' '
 	PROGRAM
 	`-- EXPR_STMT
 	    `-- NULL
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -94,6 +102,7 @@ test_expect_success 'precedence mul over add' '
 	        `-- BINARY (*)
 	            |-- INT 2
 	            `-- INT 3
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -109,6 +118,7 @@ test_expect_success 'left associativity' '
 	        |   |-- INT 1
 	        |   `-- INT 2
 	        `-- INT 3
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -124,6 +134,7 @@ test_expect_success 'right associativity of assign' '
 	        `-- ASSIGN (=)
 	            |-- ID '\''b'\''
 	            `-- INT 1
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -136,6 +147,7 @@ test_expect_success 'unary negation' '
 	`-- EXPR_STMT
 	    `-- UNARY (-)
 	        `-- INT 1
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -150,6 +162,7 @@ test_expect_success 'function call' '
 	        |-- ID '\''foo'\''
 	        |-- INT 1
 	        `-- INT 2
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -163,6 +176,7 @@ test_expect_success 'member access' '
 	    `-- MEMBER '\''c'\''
 	        `-- MEMBER '\''b'\''
 	            `-- ID '\''a'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -175,6 +189,7 @@ test_expect_success 'namespace access' '
 	`-- EXPR_STMT
 	    `-- NAMESPACE '\''bar'\''
 	        `-- ID '\''Foo'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -188,6 +203,7 @@ test_expect_success 'index access' '
 	    `-- INDEX
 	        |-- ID '\''a'\''
 	        `-- INT 0
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -201,6 +217,7 @@ test_expect_success 'cast expression' '
 	    `-- CAST
 	        |-- ID '\''x'\''
 	        `-- TYPE '\''int'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -213,6 +230,7 @@ test_expect_success 'sizeof' '
 	`-- EXPR_STMT
 	    `-- SIZEOF
 	        `-- TYPE '\''int'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -228,6 +246,7 @@ test_expect_success 'struct init' '
 	        |   `-- INT 1
 	        `-- FIELD_INIT '\''y'\''
 	            `-- INT 2
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -242,6 +261,7 @@ test_expect_success 'array init' '
 	        |-- INT 1
 	        |-- INT 2
 	        `-- INT 3
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -257,6 +277,7 @@ test_expect_success 'parenthesized expression' '
 	        |   |-- INT 1
 	        |   `-- INT 2
 	        `-- INT 3
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -271,6 +292,7 @@ test_expect_success 'syscall' '
 	        |-- INT 1
 	        |-- INT 2
 	        `-- INT 3
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -282,6 +304,7 @@ test_expect_success 'unqualified namespace access' '
 	PROGRAM
 	`-- EXPR_STMT
 	    `-- NAMESPACE '\''Red'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -294,6 +317,7 @@ test_expect_success 'tuple index access' '
 	`-- EXPR_STMT
 	    `-- MEMBER '\''0'\''
 	        `-- ID '\''pair'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual

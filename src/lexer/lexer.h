@@ -119,5 +119,6 @@ void lexer_init(struct lexer_context *ctx, const char *src, const char *f,
 		struct diag_context *d);
 struct token token_next(struct lexer_context *ctx);
 int dump_tokens(struct lexer_context *ctx);
+const char *token_type_pretty(enum token_type type);
 
 #endif

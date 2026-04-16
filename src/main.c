@@ -45,8 +45,9 @@ static char *read_file(const char *path)
 int main(int argc, char **argv)
 {
 	struct compiler_context *ctx = xcalloc(1, sizeof(*ctx));
+	struct parser_context parser;
 	char *src = NULL, *filename = NULL;
-	int i;
+	int i, ret;
 
 	if (argc < 2)
 		die("empty input");
@@ -66,33 +67,40 @@ int main(int argc, char **argv)
 
 	if (!src)
 		die("no input file provided");
+	/*
+	 * Dumping the token eats the tokens in the proccess
+	 * and AST dumping need those tokens.
+	 * RFC: Duplicating the lexer context to be able to dump both or keep
+	 * the address of the first token to reset the lexer after dumping it.
+	 */
+	if (ctx->dump_ast && ctx->dump_tokens)
+		die("--dump-ast and --dump-tokens cannot live together");
 
 	diag_init(&ctx->diag);
 	lexer_init(&ctx->lexer, src, filename, &ctx->diag);
 
 	if (ctx->dump_tokens) {
-		int ret;
 		dump_tokens(&ctx->lexer);
 		diag_flush(&ctx->diag, stderr);
 		ret = diag_has_errors(&ctx->diag);
-		diag_free(&ctx->diag);
-		free(src);
-		free(ctx);
-		return ret ? 1 : 0;
 	}
+
+	/* initializing the parser "steals" the first token */
+	parser_init(&parser, &ctx->lexer, filename, &ctx->diag);
 
 	if (ctx->dump_ast) {
-		struct parser_context parser;
-		parser_init(&parser, &ctx->lexer);
 		struct ast_node *program = parser_parse(&parser);
 		ast_dump(program);
-		parser_free(&parser);
-		free(src);
-		free(ctx);
-		return 0;
+		diag_flush(&ctx->diag, stderr);
+		ret = diag_has_errors(&ctx->diag);
 	}
 
+	printf("Program compiled with %d %s\n", ctx->diag.nr_error,
+	       ctx->diag.nr_error == 1 ? "error" : "errors");
+
 	free(src);
+	diag_free(&ctx->diag);
 	free(ctx);
-	return 0;
+	parser_free(&parser);
+	return ret ? 1 : 0;
 }

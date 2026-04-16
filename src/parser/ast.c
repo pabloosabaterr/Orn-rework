@@ -415,6 +415,9 @@ static void do_ast_dump(struct ast_node *node, int depth, int last, int *prefix)
 		if (node->typed.ann)
 			do_ast_dump(node->typed.ann, depth + 1, 1, prefix);
 		break;
+	case NODE_ERROR:
+		fprintf(stdout, "ERROR\n");
+		break;
 	default:
 		printf("UNKNOWN node_type=%d\n", node->type);
 		break;

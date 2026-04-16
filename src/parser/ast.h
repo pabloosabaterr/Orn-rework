@@ -8,6 +8,7 @@
 
 enum node_type {
 	NODE_PROGRAM,
+	NODE_ERROR,
 
 	NODE_FN_DEC,
 	NODE_STRUCT_DEC,

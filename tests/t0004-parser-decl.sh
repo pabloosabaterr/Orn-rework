@@ -22,6 +22,7 @@ test_expect_success 'function declaration' '
 	            `-- BINARY (+)
 	                |-- ID '\''a'\''
 	                `-- ID '\''b'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -39,6 +40,7 @@ test_expect_success 'function no return type' '
 	    `-- BLOCK
 	        `-- EXPR_STMT
 	            `-- INT 1
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -58,6 +60,7 @@ test_expect_success 'struct declaration' '
 	    |   `-- TYPE '\''int'\''
 	    `-- FIELD '\''y'\''
 	        `-- TYPE '\''int'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -79,6 +82,7 @@ test_expect_success 'impl declaration' '
 	        `-- BLOCK
 	            `-- EXPR_STMT
 	                `-- INT 1
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -98,6 +102,7 @@ test_expect_success 'enum plain' '
 	    |-- ENUM_MEMBER '\''Red'\''
 	    |-- ENUM_MEMBER '\''Green'\''
 	    `-- ENUM_MEMBER '\''Blue'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -116,6 +121,7 @@ test_expect_success 'enum with associated types' '
 	    |-- ENUM_MEMBER '\''Some'\''
 	    |   `-- TYPE '\''int'\''
 	    `-- ENUM_MEMBER '\''None'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -135,6 +141,7 @@ test_expect_success 'enum with explicit values' '
 	    |   `-- INT 1
 	    `-- ENUM_MEMBER '\''Write'\''
 	        `-- INT 2
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -147,6 +154,7 @@ test_expect_success 'type alias' '
 	`-- TYPE_DEC '\''Ptr'\''
 	    `-- TYPE_PTR
 	        `-- TYPE '\''int'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -159,6 +167,7 @@ test_expect_success 'let with type and init' '
 	`-- LET_DEC '\''x'\''
 	    |-- TYPE '\''int'\''
 	    `-- INT 42
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -170,6 +179,7 @@ test_expect_success 'let with type only' '
 	PROGRAM
 	`-- LET_DEC '\''x'\''
 	    `-- TYPE '\''int'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -181,6 +191,7 @@ test_expect_success 'let with init only' '
 	PROGRAM
 	`-- LET_DEC '\''x'\''
 	    `-- INT 42
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -193,6 +204,7 @@ test_expect_success 'let destructuring' '
 	`-- LET_DEC (a, b)
 	    `-- CALL
 	        `-- ID '\''foo'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -205,6 +217,7 @@ test_expect_success 'const declaration' '
 	`-- CONST_DEC '\''PI'\''
 	    |-- TYPE '\''int'\''
 	    `-- FLOAT 3.140000
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -217,6 +230,7 @@ test_expect_success 'import declaration' '
 	cat >expect <<-\EOF &&
 	PROGRAM
 	`-- IMPORT '\''std/io'\''
+	Program compiled with 0 errors
 	EOF
 	"$ORN" --dump-ast input.orn >actual &&
 	test_cmp expect actual
@@ -224,8 +238,21 @@ test_expect_success 'import declaration' '
 
 test_expect_success 'let without type or init fails' '
 	echo "let x;" >input.orn &&
-	test_must_fail "$ORN" --dump-ast input.orn 2>err &&
-	grep "let declaration" err
+	test_must_fail "$ORN" --dump-ast input.orn >actual 2>err &&
+	cat >expect <<-\EOF &&
+	PROGRAM
+	`-- ERROR
+	Program compiled with 1 error
+	EOF
+	cat >expect.err <<-\EOF &&
+	error: let declaration requires a type or initializer
+	 --> input.orn:1:5
+	   |
+	 1 | let x;
+	   |      ^
+	EOF
+	test_cmp expect actual &&
+	test_cmp expect.err err
 '
 
 test_done
