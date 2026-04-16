@@ -2,9 +2,10 @@
 #define AST_H
 
 #include "lexer/lexer.h"
-#include "memory/arena.h"
 
 #include <stddef.h>
+
+struct arena;
 
 enum node_type {
 	NODE_PROGRAM,

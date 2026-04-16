@@ -1,3 +1,4 @@
+#include "compiler.h"
 #include "diagnostic/diagnostic.h"
 #include "lexer/lexer.h"
 #include "parser/ast.h"
@@ -7,14 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct compiler_context {
-	struct lexer_context lexer;
-	struct diag_context diag;
-	unsigned dump_tokens:1;
-	unsigned dump_ast:1;
-	unsigned expect_file:1;
-};
-
+/*
+ * NEEDSWORK: should go to a IO file later when more IO related functions
+ * come or when imports and modules come in.
+ */
 static char *read_file(const char *path)
 {
 	FILE *f;
@@ -44,28 +41,28 @@ static char *read_file(const char *path)
 
 int main(int argc, char **argv)
 {
-	struct compiler_context *ctx = xcalloc(1, sizeof(*ctx));
+	struct compiler_context cc;
+	struct compiler_options options = { 0 };
+	struct lexer_context lexer;
 	struct parser_context parser;
-	char *src = NULL, *filename = NULL;
-	int i, ret;
+	struct ast_node *program;
+	char *src = NULL;
+	const char *filename = NULL;
+	int i, ret = 0;
 
-	if (argc < 2)
-		die("empty input");
-
-	ctx->expect_file = 1;
-	for (i = 1; i < argc; i++) {
+	for (i = 1; i < argc; i++)
 		if (!strcmp(argv[i], "--dump-tokens"))
-			ctx->dump_tokens = 1;
+			options.dump_tokens = 1;
 		else if (!strcmp(argv[i], "--dump-ast"))
-			ctx->dump_ast = 1;
-		else if (ctx->expect_file) {
-			ctx->expect_file = 0;
+			options.dump_ast = 1;
+		else if (argv[i][0] == '-')
+			die("unknown option '%s'", argv[i]);
+		else if (!filename)
 			filename = argv[i];
-			src = read_file(argv[i]);
-		}
-	}
+		else
+			die("multiple input files not supported");
 
-	if (!src)
+	if (!filename)
 		die("no input file provided");
 	/*
 	 * Dumping the token eats the tokens in the proccess
@@ -73,34 +70,39 @@ int main(int argc, char **argv)
 	 * RFC: Duplicating the lexer context to be able to dump both or keep
 	 * the address of the first token to reset the lexer after dumping it.
 	 */
-	if (ctx->dump_ast && ctx->dump_tokens)
+	if (options.dump_ast && options.dump_tokens)
 		die("--dump-ast and --dump-tokens cannot live together");
 
-	diag_init(&ctx->diag);
-	lexer_init(&ctx->lexer, src, filename, &ctx->diag);
+	src = read_file(filename);
 
-	if (ctx->dump_tokens) {
-		dump_tokens(&ctx->lexer);
-		diag_flush(&ctx->diag, stderr);
-		ret = diag_has_errors(&ctx->diag);
+	compiler_init(&cc, filename, src, options);
+
+	lexer_init(&lexer, &cc);
+
+	if (options.dump_tokens) {
+		dump_tokens(&lexer);
+		goto report;
 	}
 
 	/* initializing the parser "steals" the first token */
-	parser_init(&parser, &ctx->lexer, filename, &ctx->diag);
+	parser_init(&parser, &lexer, &cc);
+	program = parser_parse(&parser);
 
-	if (ctx->dump_ast) {
-		struct ast_node *program = parser_parse(&parser);
+	if (options.dump_ast) {
 		ast_dump(program);
-		diag_flush(&ctx->diag, stderr);
-		ret = diag_has_errors(&ctx->diag);
+		goto report;
 	}
 
-	printf("Program compiled with %d %s\n", ctx->diag.nr_error,
-	       ctx->diag.nr_error == 1 ? "error" : "errors");
+report:
+	diag_flush(&cc.diag, stderr);
+	printf("Program compiled with %d %s\n", cc.diag.nr_error,
+	       cc.diag.nr_error == 1 ? "error" : "errors");
 
+	ret = diag_has_errors(&cc.diag) ? 1 : 0;
+
+	if (!options.dump_tokens)
+		parser_free(&parser);
 	free(src);
-	diag_free(&ctx->diag);
-	free(ctx);
-	parser_free(&parser);
-	return ret ? 1 : 0;
+	compiler_free(&cc);
+	return ret;
 }

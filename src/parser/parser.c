@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "compiler.h"
 #include "diagnostic/diagnostic.h"
 #include "lexer/lexer.h"
 #include "memory/arena.h"
@@ -95,7 +96,7 @@ static struct ast_node *parse_type(struct parser_context *p)
 	/* Pointers */
 	if (check(p, TK_STAR)) {
 		tok = advance(p);
-		node = ast_node_new(&p->arena, NODE_TYPE_PTR, tok);
+		node = ast_node_new(p->arena, NODE_TYPE_PTR, tok);
 		node->type_ptr.type = parse_type(p);
 		return node;
 	}
@@ -103,7 +104,7 @@ static struct ast_node *parse_type(struct parser_context *p)
 	/* Arrays */
 	if (check(p, TK_LBRACKET)) {
 		tok = advance(p);
-		node = ast_node_new(&p->arena, NODE_TYPE_ARR, tok);
+		node = ast_node_new(p->arena, NODE_TYPE_ARR, tok);
 
 		node->type_array.elem_type = parse_type(p);
 
@@ -119,10 +120,10 @@ static struct ast_node *parse_type(struct parser_context *p)
 	if (check(p, TK_LPAREN)) {
 		size_t nr = 0, alloc = 0;
 		tok = advance(p);
-		node = ast_node_new(&p->arena, NODE_TYPE_TUPLE, tok);
+		node = ast_node_new(p->arena, NODE_TYPE_TUPLE, tok);
 
 		while (!check(p, TK_RPAREN)) {
-			ARENA_ALLOC_GROW(&p->arena, node->list.items, nr + 1, alloc);
+			ARENA_ALLOC_GROW(p->arena, node->list.items, nr + 1, alloc);
 			node->list.items[nr++] = parse_type(p);
 			if (!check(p, TK_RPAREN))
 				expect(p, TK_COMMA);
@@ -145,7 +146,7 @@ static struct ast_node *parse_type(struct parser_context *p)
 	case TK_NULL:
 	case TK_VOID:
 	case TK_ID:
-		return ast_node_new(&p->arena, NODE_TYPE_NAME, tok);
+		return ast_node_new(p->arena, NODE_TYPE_NAME, tok);
 	default:
 		if (!p->in_panic) {
 			diag_emit(p->diag, ERROR, loc_from_token(p, tok),
@@ -153,7 +154,7 @@ static struct ast_node *parse_type(struct parser_context *p)
 				  (int)tok.len, tok.lex);
 			p->in_panic = 1;
 		}
-		return ast_node_new(&p->arena, NODE_ERROR, tok);
+		return ast_node_new(p->arena, NODE_ERROR, tok);
 	}
 }
 
@@ -164,7 +165,7 @@ static struct ast_node *parse_numbers(struct parser_context *p,
 				      int base, int prefix_len)
 {
 	struct token tok = advance(p);
-	struct ast_node *node = ast_node_new(&p->arena, NODE_INT, tok);
+	struct ast_node *node = ast_node_new(p->arena, NODE_INT, tok);
 	node->lit_int.val = xstrtoll(tok.lex + prefix_len, tok.len - prefix_len,
 				     base);
 	return node;
@@ -176,7 +177,7 @@ static struct ast_node *parse_field_init(struct parser_context *p)
 	struct ast_node *node;
 
 	expect(p, TK_COLON);
-	node = ast_node_new(&p->arena, NODE_FIELD_INIT, name);
+	node = ast_node_new(p->arena, NODE_FIELD_INIT, name);
 	node->field_init.val = parse_expr(p);
 	return node;
 }
@@ -197,24 +198,24 @@ static struct ast_node *parse_primary(struct parser_context *p)
 		return parse_numbers(p, 10, 0);
 	case TK_FLOATING:
 		advance(p);
-		node = ast_node_new(&p->arena, NODE_FLOATING, tok);
+		node = ast_node_new(p->arena, NODE_FLOATING, tok);
 		node->lit_floating.val = xstrtod(tok.lex, tok.len);
 		return node;
 	case TK_CHARLIT:
 		advance(p);
-		node = ast_node_new(&p->arena, NODE_CHAR, tok);
+		node = ast_node_new(p->arena, NODE_CHAR, tok);
 		node->lit_char.val = tok.lex + 1;
 		return node;
 	case TK_STRINGLIT:
 		advance(p);
-		node = ast_node_new(&p->arena, NODE_STRING, tok);
+		node = ast_node_new(p->arena, NODE_STRING, tok);
 		node->lit_str.val = tok.lex + 1;
 		node->lit_str.len = tok.len - 2;
 		return node;
 	case TK_SIZE_OF:
 		advance(p);
 		expect(p, TK_LPAREN);
-		node = ast_node_new(&p->arena, NODE_SIZEOF, tok);
+		node = ast_node_new(p->arena, NODE_SIZEOF, tok);
 		node->sizeof_expr.expr = parse_type(p);
 		expect(p, TK_RPAREN);
 		return node;
@@ -222,9 +223,9 @@ static struct ast_node *parse_primary(struct parser_context *p)
 		size_t nr = 0, alloc = 0;
 		advance(p);
 		expect(p, TK_LPAREN);
-		node = ast_node_new(&p->arena, NODE_SYSCALL, tok);
+		node = ast_node_new(p->arena, NODE_SYSCALL, tok);
 		while (!check(p, TK_RPAREN)) {
-			ARENA_ALLOC_GROW(&p->arena, node->list.items, nr + 1, alloc);
+			ARENA_ALLOC_GROW(p->arena, node->list.items, nr + 1, alloc);
 			node->list.items[nr++] = parse_expr(p);
 			if (!check(p, TK_RPAREN))
 				expect(p, TK_COMMA);
@@ -236,9 +237,9 @@ static struct ast_node *parse_primary(struct parser_context *p)
 	case TK_LBRACKET: {
 		size_t nr = 0, alloc = 0;
 		advance(p);
-		node = ast_node_new(&p->arena, NODE_ARRAY_INIT, tok);
+		node = ast_node_new(p->arena, NODE_ARRAY_INIT, tok);
 		while (!check(p, TK_RBRACKET)) {
-			ARENA_ALLOC_GROW(&p->arena, node->list.items, nr + 1, alloc);
+			ARENA_ALLOC_GROW(p->arena, node->list.items, nr + 1, alloc);
 			node->list.items[nr++] = parse_expr(p);
 			if (!check(p, TK_RBRACKET))
 				expect(p, TK_COMMA);
@@ -250,20 +251,20 @@ static struct ast_node *parse_primary(struct parser_context *p)
 	case TK_TRUE:
 	case TK_FALSE:
 		advance(p);
-		node = ast_node_new(&p->arena, NODE_BOOL, tok);
+		node = ast_node_new(p->arena, NODE_BOOL, tok);
 		node->lit_bool.val = tok.type == TK_TRUE;
 		return node;
 	case TK_NULL:
 		advance(p);
-		return ast_node_new(&p->arena, NODE_NULL, tok);
+		return ast_node_new(p->arena, NODE_NULL, tok);
 	case TK_ID:
 		advance(p);
 		if (!p->no_struct_init && check(p, TK_LBRACE)) {
 			size_t nr = 0, alloc = 0;
 			advance(p);
-			node = ast_node_new(&p->arena, NODE_STRUCT_INIT, tok);
+			node = ast_node_new(p->arena, NODE_STRUCT_INIT, tok);
 			while (!check(p, TK_RBRACE)) {
-				ARENA_ALLOC_GROW(&p->arena, node->list.items, nr + 1, alloc);
+				ARENA_ALLOC_GROW(p->arena, node->list.items, nr + 1, alloc);
 				node->list.items[nr++] = parse_field_init(p);
 				if (!check(p, TK_RBRACE))
 					expect(p, TK_COMMA);
@@ -272,7 +273,7 @@ static struct ast_node *parse_primary(struct parser_context *p)
 			node->list.nr_item = nr;
 			return node;
 		}
-		return ast_node_new(&p->arena, NODE_ID, tok);
+		return ast_node_new(p->arena, NODE_ID, tok);
 	case TK_LPAREN:
 		advance(p);
 		node = parse_expr(p);
@@ -281,7 +282,7 @@ static struct ast_node *parse_primary(struct parser_context *p)
 	case TK_NAMESPACE:
 		advance(p);
 		expect(p, TK_ID);
-		node = ast_node_new(&p->arena, NODE_NAMESPACE, p->prev);
+		node = ast_node_new(p->arena, NODE_NAMESPACE, p->prev);
 		node->namespace.left = NULL;
 		return node;
 	default:
@@ -291,7 +292,7 @@ static struct ast_node *parse_primary(struct parser_context *p)
 				  (int)p->prev.len, p->prev.lex);
 			p->in_panic = 1;
 		}
-		return ast_node_new(&p->arena, NODE_ERROR, p->prev);
+		return ast_node_new(p->arena, NODE_ERROR, p->prev);
 	}
 }
 
@@ -307,7 +308,7 @@ static struct ast_node *parse_postfix(struct parser_context *p)
 		if (check(p, TK_DOT)) {
 			advance(p);
 			if (check(p, TK_ID) || check(p, TK_NUMBER)) {
-				struct ast_node *m = ast_node_new(&p->arena,
+				struct ast_node *m = ast_node_new(p->arena,
 								  NODE_MEMBER,
 								  advance(p));
 				m->member.left = node;
@@ -320,18 +321,18 @@ static struct ast_node *parse_postfix(struct parser_context *p)
 			struct ast_node *ns;
 			advance(p);
 			expect(p, TK_ID);
-			ns = ast_node_new(&p->arena, NODE_NAMESPACE, p->prev);
+			ns = ast_node_new(p->arena, NODE_NAMESPACE, p->prev);
 			ns->namespace.left = node;
 			node = ns;
 		} else if (check(p, TK_LPAREN)) {
 			struct token tok = advance(p);
-			struct ast_node *call = ast_node_new(&p->arena,
+			struct ast_node *call = ast_node_new(p->arena,
 							     NODE_CALL, tok);
 			size_t nr = 0, alloc = 0;
 
 			call->call.callee = node;
 			while (!check(p, TK_RPAREN)) {
-				ARENA_ALLOC_GROW(&p->arena, call->call.args, nr + 1, alloc);
+				ARENA_ALLOC_GROW(p->arena, call->call.args, nr + 1, alloc);
 				call->call.args[nr++] = parse_expr(p);
 				if (!check(p, TK_RPAREN))
 					expect(p, TK_COMMA);
@@ -341,7 +342,7 @@ static struct ast_node *parse_postfix(struct parser_context *p)
 			node = call;
 		} else if (check(p, TK_LBRACKET)) {
 			struct token tok = advance(p);
-			struct ast_node *idx = ast_node_new(&p->arena,
+			struct ast_node *idx = ast_node_new(p->arena,
 							    NODE_INDEX, tok);
 			idx->index.obj = node;
 			idx->index.idx = parse_expr(p);
@@ -366,7 +367,7 @@ static struct ast_node *parse_assign(struct parser_context *p)
 	    check(p, TK_MINUSEQ) || check(p, TK_STAREQ) ||
 	    check(p, TK_SLASHEQ) || check(p, TK_MODEQ)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_ASSIGN, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_ASSIGN, op);
 		node->assign.type = token_to_op(op.type);
 		node->assign.target = left;
 		node->assign.val = parse_assign(p);
@@ -387,7 +388,7 @@ static struct ast_node *parse_unary(struct parser_context *p)
 	    check(p, TK_TILDE) || check(p, TK_AMP) ||
 	    check(p, TK_STAR)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_UNARY, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_UNARY, op);
 		node->unary.type = token_to_op(op.type);
 		node->unary.operand = parse_unary(p);
 		return node;
@@ -402,7 +403,7 @@ static struct ast_node *parse_cast(struct parser_context *p)
 
 	while (check(p, TK_AS)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_CAST, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_CAST, op);
 		node->cast.expr = left;
 		node->cast.target_type = parse_type(p);
 		left = node;
@@ -416,7 +417,7 @@ static struct ast_node *parse_mul(struct parser_context *p)
 
 	while (check(p, TK_STAR) || check(p, TK_SLASH) || check(p, TK_MOD)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_BINARY, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_BINARY, op);
 		node->binary.type = token_to_op(op.type);
 		node->binary.left = left;
 		node->binary.right = parse_cast(p);
@@ -431,7 +432,7 @@ static struct ast_node *parse_add(struct parser_context *p)
 
 	while (check(p, TK_PLUS) || check(p, TK_MINUS)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_BINARY, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_BINARY, op);
 		node->binary.type = token_to_op(op.type);
 		node->binary.left = left;
 		node->binary.right = parse_mul(p);
@@ -446,7 +447,7 @@ static struct ast_node *parse_shift(struct parser_context *p)
 
 	while (check(p, TK_LSHIFT) || check(p, TK_RSHIFT)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_BINARY, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_BINARY, op);
 		node->binary.type = token_to_op(op.type);
 		node->binary.left = left;
 		node->binary.right = parse_add(p);
@@ -461,7 +462,7 @@ static struct ast_node *parse_cmp(struct parser_context *p)
 
 	while (check(p, TK_LT) || check(p, TK_GT) || check(p, TK_LE) || check(p, TK_GE)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_BINARY, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_BINARY, op);
 		node->binary.type = token_to_op(op.type);
 		node->binary.left = left;
 		node->binary.right = parse_shift(p);
@@ -476,7 +477,7 @@ static struct ast_node *parse_eq(struct parser_context *p)
 
 	while (check(p, TK_CMP) || check(p, TK_NEQ)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_BINARY, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_BINARY, op);
 		node->binary.type = token_to_op(op.type);
 		node->binary.left = left;
 		node->binary.right = parse_cmp(p);
@@ -491,7 +492,7 @@ static struct ast_node *parse_bitand(struct parser_context *p)
 
 	while (check(p, TK_AMP)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_BINARY, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_BINARY, op);
 		node->binary.type = token_to_op(op.type);
 		node->binary.left = left;
 		node->binary.right = parse_eq(p);
@@ -506,7 +507,7 @@ static struct ast_node *parse_bitxor(struct parser_context *p)
 
 	while (check(p, TK_CARET)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_BINARY, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_BINARY, op);
 		node->binary.type = token_to_op(op.type);
 		node->binary.left = left;
 		node->binary.right = parse_bitand(p);
@@ -521,7 +522,7 @@ static struct ast_node *parse_bitor(struct parser_context *p)
 
 	while (check(p, TK_PIPE)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_BINARY, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_BINARY, op);
 		node->binary.type = token_to_op(op.type);
 		node->binary.left = left;
 		node->binary.right = parse_bitxor(p);
@@ -536,7 +537,7 @@ static struct ast_node *parse_and(struct parser_context *p)
 
 	while (check(p, TK_AND)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_BINARY, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_BINARY, op);
 		node->binary.type = token_to_op(op.type);
 		node->binary.left = left;
 		node->binary.right = parse_bitor(p);
@@ -551,7 +552,7 @@ static struct ast_node *parse_or(struct parser_context *p)
 
 	while (check(p, TK_OR)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_BINARY, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_BINARY, op);
 		node->binary.type = token_to_op(op.type);
 		node->binary.left = left;
 		node->binary.right = parse_and(p);
@@ -566,7 +567,7 @@ static struct ast_node *parse_range(struct parser_context *p)
 
 	if (check(p, TK_RANGE)) {
 		struct token op = advance(p);
-		struct ast_node *node = ast_node_new(&p->arena, NODE_BINARY, op);
+		struct ast_node *node = ast_node_new(p->arena, NODE_BINARY, op);
 		node->binary.type = token_to_op(op.type);
 		node->binary.left = left;
 		node->binary.right = parse_or(p);
@@ -592,7 +593,7 @@ static inline struct ast_node *parse_expr_no_struct(struct parser_context *p)
 static struct ast_node *parse_incdec(struct parser_context *p, struct ast_node *expr)
 {
 	struct token op = advance(p);
-	struct ast_node *node = ast_node_new(&p->arena, NODE_INCDEC, op);
+	struct ast_node *node = ast_node_new(p->arena, NODE_INCDEC, op);
 	node->incdec.type = token_to_op(op.type);
 	node->incdec.target = expr;
 	expect(p, TK_SEMICOLON);
@@ -606,7 +607,7 @@ static struct ast_node *parse_expr_stmt(struct parser_context *p)
 	if (check(p, TK_INCREMENT) || check(p, TK_DECREMENT))
 		return parse_incdec(p, expr);
 
-	struct ast_node *node = ast_node_new(&p->arena, NODE_EXPR_STMT, p->current);
+	struct ast_node *node = ast_node_new(p->arena, NODE_EXPR_STMT, p->current);
 	node->expr_stmt.expr = expr;
 	expect(p, TK_SEMICOLON);
 	return node;
@@ -619,7 +620,7 @@ static struct ast_node *parse_match_pattern(struct parser_context *p)
 
 	if (check(p, TK_UNDERSCORE)) {
 		advance(p);
-		node = ast_node_new(&p->arena, NODE_MATCH_PATTERN, tok);
+		node = ast_node_new(p->arena, NODE_MATCH_PATTERN, tok);
 		node->match_pattern.is_wildcard = 1;
 		return node;
 	}
@@ -629,8 +630,8 @@ static struct ast_node *parse_match_pattern(struct parser_context *p)
 	 */
 	if (check(p, TK_ID)) {
 		struct token id = advance(p);
-		node = ast_node_new(&p->arena, NODE_MATCH_PATTERN, id);
-		node->match_pattern.expr = ast_node_new(&p->arena, NODE_ID, id);
+		node = ast_node_new(p->arena, NODE_MATCH_PATTERN, id);
+		node->match_pattern.expr = ast_node_new(p->arena, NODE_ID, id);
 
 		if (match(p, TK_LPAREN)) {
 			node->match_pattern.bind = parse_id_list(p, &node->match_pattern.nr_bind);
@@ -642,7 +643,7 @@ static struct ast_node *parse_match_pattern(struct parser_context *p)
 	/*
 	 * Is a literal
 	 */
-	node = ast_node_new(&p->arena, NODE_MATCH_PATTERN, tok);
+	node = ast_node_new(p->arena, NODE_MATCH_PATTERN, tok);
 	node->match_pattern.expr = parse_expr(p);
 	return node;
 }
@@ -650,7 +651,7 @@ static struct ast_node *parse_match_pattern(struct parser_context *p)
 static struct ast_node *parse_match_arm(struct parser_context *p)
 {
 	struct token tok = p->current;
-	struct ast_node *node = ast_node_new(&p->arena, NODE_MATCH_ARM, tok);
+	struct ast_node *node = ast_node_new(p->arena, NODE_MATCH_ARM, tok);
 	node->match_arm.pattern = parse_match_pattern(p);
 	expect(p, TK_FATARROW);
 	node->match_arm.body = parse_stmt(p);
@@ -660,7 +661,7 @@ static struct ast_node *parse_match_arm(struct parser_context *p)
 static struct ast_node *parse_match(struct parser_context *p)
 {
 	struct token tok = advance(p);
-	struct ast_node *node = ast_node_new(&p->arena, NODE_MATCH, tok);
+	struct ast_node *node = ast_node_new(p->arena, NODE_MATCH, tok);
 	size_t nr = 0, alloc = 0;
 
 	expect(p, TK_LPAREN);
@@ -668,7 +669,7 @@ static struct ast_node *parse_match(struct parser_context *p)
 	expect(p, TK_RPAREN);
 	expect(p, TK_LBRACE);
 	while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
-		ARENA_ALLOC_GROW(&p->arena, node->match.arms, nr + 1, alloc);
+		ARENA_ALLOC_GROW(p->arena, node->match.arms, nr + 1, alloc);
 		node->match.arms[nr++] = parse_match_arm(p);
 	}
 	expect(p, TK_RBRACE);
@@ -679,7 +680,7 @@ static struct ast_node *parse_match(struct parser_context *p)
 static struct ast_node *parse_defer(struct parser_context *p)
 {
 	struct token tok = advance(p);
-	struct ast_node *node = ast_node_new(&p->arena, NODE_DEFER, tok);
+	struct ast_node *node = ast_node_new(p->arena, NODE_DEFER, tok);
 	node->defer_stmt.stmt = parse_stmt(p);
 	return node;
 }
@@ -687,7 +688,7 @@ static struct ast_node *parse_defer(struct parser_context *p)
 static struct ast_node *parse_continue(struct parser_context *p)
 {
 	struct token tok = advance(p);
-	struct ast_node *node = ast_node_new(&p->arena, NODE_CONTINUE, tok);
+	struct ast_node *node = ast_node_new(p->arena, NODE_CONTINUE, tok);
 	expect(p, TK_SEMICOLON);
 	return node;
 }
@@ -695,7 +696,7 @@ static struct ast_node *parse_continue(struct parser_context *p)
 static struct ast_node *parse_break(struct parser_context *p)
 {
 	struct token tok = advance(p);
-	struct ast_node *node = ast_node_new(&p->arena, NODE_BREAK, tok);
+	struct ast_node *node = ast_node_new(p->arena, NODE_BREAK, tok);
 	expect(p, TK_SEMICOLON);
 	return node;
 }
@@ -703,7 +704,7 @@ static struct ast_node *parse_break(struct parser_context *p)
 static struct ast_node *parse_return(struct parser_context *p)
 {
 	struct token tok = advance(p);
-	struct ast_node *node = ast_node_new(&p->arena, NODE_RETURN, tok);
+	struct ast_node *node = ast_node_new(p->arena, NODE_RETURN, tok);
 
 	if (!check(p, TK_SEMICOLON))
 		node->return_stmt.expr = parse_expr(p);
@@ -718,7 +719,7 @@ static struct ast_node *parse_for(struct parser_context *p)
 
 	advance(p);
 	expect(p, TK_ID);
-	node = ast_node_new(&p->arena, NODE_FOR, p->prev);
+	node = ast_node_new(p->arena, NODE_FOR, p->prev);
 	expect(p, TK_IN);
 	node->for_stmt.range = parse_expr_no_struct(p);
 	node->for_stmt.body = parse_stmt(p);
@@ -730,7 +731,7 @@ static struct ast_node *parse_while(struct parser_context *p)
 	struct ast_node *node;
 
 	advance(p);
-	node = ast_node_new(&p->arena, NODE_WHILE, p->prev);
+	node = ast_node_new(p->arena, NODE_WHILE, p->prev);
 	node->while_stmt.cond = parse_expr_no_struct(p);
 	node->while_stmt.body = parse_stmt(p);
 	return node;
@@ -742,12 +743,12 @@ static struct ast_node *parse_if(struct parser_context *p)
 	size_t nr = 0, alloc_bodies = 0, alloc_conds = 0;
 
 	advance(p);
-	node = ast_node_new(&p->arena, NODE_IF, p->prev);
+	node = ast_node_new(p->arena, NODE_IF, p->prev);
 	do {
-		ARENA_ALLOC_GROW(&p->arena, node->if_stmt.conds, nr + 1,
+		ARENA_ALLOC_GROW(p->arena, node->if_stmt.conds, nr + 1,
 				 alloc_conds);
 
-		ARENA_ALLOC_GROW(&p->arena, node->if_stmt.bodies, nr + 1,
+		ARENA_ALLOC_GROW(p->arena, node->if_stmt.bodies, nr + 1,
 				 alloc_bodies);
 
 		node->if_stmt.conds[nr] = parse_expr_no_struct(p);
@@ -764,12 +765,12 @@ static struct ast_node *parse_if(struct parser_context *p)
 
 static struct ast_node *parse_block(struct parser_context *p)
 {
-	struct ast_node *node = ast_node_new(&p->arena, NODE_BLOCK, p->current);
+	struct ast_node *node = ast_node_new(p->arena, NODE_BLOCK, p->current);
 
 	expect(p, TK_LBRACE);
 	while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
 		p->in_panic = 0;
-		ast_node_append(&p->arena, node, parse_dec(p));
+		ast_node_append(p->arena, node, parse_dec(p));
 		if (p->in_panic)
 			synchronize(p);
 	}
@@ -815,7 +816,7 @@ static struct token *parse_id_list(struct parser_context *p, size_t *nr)
 
 	do {
 		expect(p, TK_ID);
-		ARENA_ALLOC_GROW(&p->arena, list, c + 1, alloc);
+		ARENA_ALLOC_GROW(p->arena, list, c + 1, alloc);
 		list[c++] = p->prev;
 	} while (match(p, TK_COMMA));
 
@@ -830,7 +831,7 @@ static struct ast_node *parse_function(struct parser_context *p)
 
 	expect(p, TK_FN);
 	expect(p, TK_ID);
-	node = ast_node_new(&p->arena, NODE_FN_DEC, p->prev);
+	node = ast_node_new(p->arena, NODE_FN_DEC, p->prev);
 
 	expect(p, TK_LPAREN);
 	while (!check(p, TK_RPAREN) && !check(p, TK_EOF)) {
@@ -839,12 +840,12 @@ static struct ast_node *parse_function(struct parser_context *p)
 			break;
 		}
 		expect(p, TK_ID);
-		struct ast_node *param = ast_node_new(&p->arena, NODE_PARAM,
+		struct ast_node *param = ast_node_new(p->arena, NODE_PARAM,
 						      p->prev);
 		expect(p, TK_COLON);
 		param->typed.ann = parse_type(p);
 
-		ARENA_ALLOC_GROW(&p->arena, node->fn_dec.params, nr + 1, alloc);
+		ARENA_ALLOC_GROW(p->arena, node->fn_dec.params, nr + 1, alloc);
 		node->fn_dec.params[nr++] = param;
 		if (!check(p, TK_RPAREN))
 			expect(p, TK_COMMA);
@@ -866,17 +867,17 @@ static struct ast_node *parse_struct(struct parser_context *p)
 
 	expect(p, TK_STRUCT);
 	expect(p, TK_ID);
-	node = ast_node_new(&p->arena, NODE_STRUCT_DEC, p->prev);
+	node = ast_node_new(p->arena, NODE_STRUCT_DEC, p->prev);
 
 	expect(p, TK_LBRACE);
 	while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
 		expect(p, TK_ID);
-		struct ast_node *field = ast_node_new(&p->arena, NODE_FIELD, p->prev);
+		struct ast_node *field = ast_node_new(p->arena, NODE_FIELD, p->prev);
 
 		expect(p, TK_COLON);
 		field->typed.ann = parse_type(p);
 
-		ARENA_ALLOC_GROW(&p->arena, node->list.items, nr + 1, alloc);
+		ARENA_ALLOC_GROW(p->arena, node->list.items, nr + 1, alloc);
 		node->list.items[nr++] = field;
 		if (!check(p, TK_RBRACE))
 			expect(p, TK_SEMICOLON);
@@ -893,11 +894,11 @@ static struct ast_node *parse_impl(struct parser_context *p)
 
 	expect(p, TK_IMPL);
 	expect(p, TK_ID);
-	node = ast_node_new(&p->arena, NODE_IMPL_DEC, p->prev);
+	node = ast_node_new(p->arena, NODE_IMPL_DEC, p->prev);
 	expect(p, TK_LBRACE);
 	while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
 		struct ast_node *fn = parse_function(p);
-		ARENA_ALLOC_GROW(&p->arena, node->list.items, nr + 1, alloc);
+		ARENA_ALLOC_GROW(p->arena, node->list.items, nr + 1, alloc);
 		node->list.items[nr++] = fn;
 	}
 	expect(p, TK_RBRACE);
@@ -912,17 +913,17 @@ static struct ast_node *parse_enum(struct parser_context *p)
 
 	expect(p, TK_ENUM);
 	expect(p, TK_ID);
-	node = ast_node_new(&p->arena, NODE_ENUM_DEC, p->prev);
+	node = ast_node_new(p->arena, NODE_ENUM_DEC, p->prev);
 	expect(p, TK_LBRACE);
 	while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
 		size_t nr_assocs = 0, alloc_assocs = 0;
 
 		expect(p, TK_ID);
-		struct ast_node *member = ast_node_new(&p->arena, NODE_ENUM_MEMBER, p->prev);
+		struct ast_node *member = ast_node_new(p->arena, NODE_ENUM_MEMBER, p->prev);
 
 		if (match(p, TK_LPAREN)) {
 			while (!check(p, TK_RPAREN) && !check(p, TK_EOF)) {
-				ARENA_ALLOC_GROW(&p->arena,
+				ARENA_ALLOC_GROW(p->arena,
 						 member->enum_member.assocs,
 						 nr_assocs + 1,
 						 alloc_assocs);
@@ -939,7 +940,7 @@ static struct ast_node *parse_enum(struct parser_context *p)
 		if (match(p, TK_EQUAL))
 			member->enum_member.val = parse_expr(p);
 
-		ARENA_ALLOC_GROW(&p->arena, node->list.items, nr + 1, alloc);
+		ARENA_ALLOC_GROW(p->arena, node->list.items, nr + 1, alloc);
 		node->list.items[nr++] = member;
 
 		if (!check(p, TK_RBRACE))
@@ -956,7 +957,7 @@ static struct ast_node *parse_type_dec(struct parser_context *p)
 
 	expect(p, TK_TYPE);
 	expect(p, TK_ID);
-	node = ast_node_new(&p->arena, NODE_TYPE_DEC, p->prev);
+	node = ast_node_new(p->arena, NODE_TYPE_DEC, p->prev);
 
 	expect(p, TK_EQUAL);
 	node->type_dec.type = parse_type(p);
@@ -979,14 +980,14 @@ static struct ast_node *parse_let(struct parser_context *p)
 	struct ast_node *node;
 
 	expect(p, TK_LET);
-	node = ast_node_new(&p->arena, NODE_LET_DEC, p->prev);
+	node = ast_node_new(p->arena, NODE_LET_DEC, p->prev);
 
 	if (match(p, TK_LPAREN)) {
 		node->let_dec.name = parse_id_list(p, &node->let_dec.nr_name);
 		expect(p, TK_RPAREN);
 	} else {
 		expect(p, TK_ID);
-		node->let_dec.name = arena_alloc(&p->arena, sizeof(struct token));
+		node->let_dec.name = arena_alloc(p->arena, sizeof(struct token));
 		*node->let_dec.name = p->prev;
 		node->let_dec.nr_name = 1;
 	}
@@ -1004,7 +1005,7 @@ static struct ast_node *parse_let(struct parser_context *p)
 				  "let declaration requires a type or initializer");
 			p->in_panic = 1;
 		}
-		return ast_node_new(&p->arena, NODE_ERROR, p->current);
+		return ast_node_new(p->arena, NODE_ERROR, p->current);
 	}
 
 	expect(p, TK_SEMICOLON);
@@ -1017,7 +1018,7 @@ static struct ast_node *parse_const(struct parser_context *p)
 
 	expect(p, TK_CONST);
 	expect(p, TK_ID);
-	node = ast_node_new(&p->arena, NODE_CONST_DEC, p->prev);
+	node = ast_node_new(p->arena, NODE_CONST_DEC, p->prev);
 	expect(p, TK_COLON);
 	node->const_dec.ann = parse_type(p);
 	expect(p, TK_EQUAL);
@@ -1032,7 +1033,7 @@ static struct ast_node *parse_import(struct parser_context *p)
 
 	expect(p, TK_IMPORT);
 	expect(p, TK_STRINGLIT);
-	node = ast_node_new(&p->arena, NODE_IMPORT_DEC, p->prev);
+	node = ast_node_new(p->arena, NODE_IMPORT_DEC, p->prev);
 	expect(p, TK_SEMICOLON);
 	return node;
 }
@@ -1062,13 +1063,13 @@ static struct ast_node *parse_dec(struct parser_context *p)
 }
 
 void parser_init(struct parser_context *p, struct lexer_context *lexer,
-		 const char *file, struct diag_context *diag)
+		 struct compiler_context *cc)
 {
 	memset(p, 0, sizeof(*p));
 	p->lexer = lexer;
-	p->file = file;
-	p->diag = diag;
-	arena_init(&p->arena, PARSER_ARENA_DEF);
+	p->file = cc->filename;
+	p->diag = &cc->diag;
+	p->arena = &cc->arena;
 	p->current = token_next(lexer);
 }
 
@@ -1080,11 +1081,11 @@ void parser_init(struct parser_context *p, struct lexer_context *lexer,
  */
 struct ast_node *parser_parse(struct parser_context *p)
 {
-	struct ast_node *program = ast_node_new(&p->arena, NODE_PROGRAM, p->current);
+	struct ast_node *program = ast_node_new(p->arena, NODE_PROGRAM, p->current);
 
 	while (!check(p, TK_EOF)) {
 		p->in_panic = 0;
-		ast_node_append(&p->arena, program, parse_dec(p));
+		ast_node_append(p->arena, program, parse_dec(p));
 		if (p->in_panic)
 			synchronize(p);
 	}
@@ -1094,5 +1095,5 @@ struct ast_node *parser_parse(struct parser_context *p)
 
 void parser_free(struct parser_context *p)
 {
-	arena_free(&p->arena);
+	arena_free(p->arena);
 }

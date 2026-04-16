@@ -1,11 +1,12 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "diagnostic/diagnostic.h"
 #include "lexer/lexer.h"
-#include "memory/arena.h"
 
-/* 16KB ~ 204 nodes */
-#define PARSER_ARENA_DEF (16384)
+struct compiler_context;
+struct diag_context;
+struct arena;
 
 struct parser_context {
 	struct lexer_context *lexer;
@@ -13,7 +14,7 @@ struct parser_context {
 	const char* file;
 	struct token current;
 	struct token prev;
-	struct arena arena;
+	struct arena *arena;
 	int errors;
 	/*
 	 * If statements doesn't use parentheses so it is ambiguous whether if
@@ -32,7 +33,7 @@ struct parser_context {
 };
 
 void parser_init(struct parser_context *ctx, struct lexer_context *lexer,
-		 const char* file, struct diag_context *diag);
+		 struct compiler_context *cc);
 struct ast_node *parser_parse(struct parser_context *parser);
 void parser_free(struct parser_context *parser);
 

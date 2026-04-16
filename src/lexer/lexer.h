@@ -3,6 +3,9 @@
 
 #include <stddef.h>
 
+struct compiler_context;
+struct diag_context;
+
 enum token_type {
 	TK_EOF,
 	TK_ERROR,
@@ -115,8 +118,7 @@ struct token {
 	int col;
 };
 
-void lexer_init(struct lexer_context *ctx, const char *src, const char *f,
-		struct diag_context *d);
+void lexer_init(struct lexer_context *ctx, struct compiler_context *cc);
 struct token token_next(struct lexer_context *ctx);
 int dump_tokens(struct lexer_context *ctx);
 const char *token_type_pretty(enum token_type type);
