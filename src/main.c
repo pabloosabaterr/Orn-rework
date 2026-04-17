@@ -4,6 +4,7 @@
 #include "parser/ast.h"
 #include "parser/parser.h"
 #include "memory/wrapper.h"
+#include "semantic/semantic.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,6 +46,7 @@ int main(int argc, char **argv)
 	struct compiler_options options = { 0 };
 	struct lexer_context lexer;
 	struct parser_context parser;
+	struct semantic_context sem;
 	struct ast_node *program;
 	char *src = NULL;
 	const char *filename = NULL;
@@ -92,6 +94,9 @@ int main(int argc, char **argv)
 		ast_dump(program);
 		goto report;
 	}
+
+	sem_init(&sem, &cc);
+	semantic_analyze(&sem, program);
 
 report:
 	diag_flush(&cc.diag, stderr);

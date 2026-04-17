@@ -6,6 +6,8 @@
 #include <stddef.h>
 
 struct arena;
+struct type;
+struct symbol;
 
 enum node_type {
 	NODE_PROGRAM,
@@ -111,6 +113,8 @@ enum op_type {
 struct ast_node {
 	enum node_type type;
 	struct token tok;
+	struct type *rtype;
+	struct symbol *rsym;
 	union {
 		/* NODE_PROGRAM, NODE_BLOCK */
 		struct {
