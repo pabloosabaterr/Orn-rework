@@ -25,6 +25,20 @@ struct symbol {
 	struct token tok;
 	struct type *type;
 	struct ast_node *node;
+	/*
+	 * Aliases can call between them in cycles:
+	 *
+	 * type a = b
+	 *
+	 * type b = a
+	 *
+	 * This needs to be detected to avoid infinite recursion.
+	 *
+	 * 0 = not resolved,
+	 * 1 = resolving,
+	 * 2 = resolved.
+	 */
+	unsigned resolved_state:2;
 
 	union {
 		struct {
@@ -39,7 +53,7 @@ struct symbol {
 			size_t alloc_locals;
 		} fn;
 		struct {
-			struct scope *members;
+			struct symbol **members;
 			size_t nr;
 		} aggregate;
 		struct {
