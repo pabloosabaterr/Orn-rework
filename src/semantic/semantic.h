@@ -3,6 +3,7 @@
 
 #include "semantic/type.h"
 #include "lexer/lexer.h"
+#include <stddef.h>
 
 struct ast_node;
 struct compiler_context;
@@ -55,6 +56,7 @@ struct symbol {
 		struct {
 			struct symbol **members;
 			size_t nr;
+			size_t alloc;
 		} aggregate;
 		struct {
 			long long val;

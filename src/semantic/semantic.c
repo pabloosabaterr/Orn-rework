@@ -5,6 +5,7 @@
 #include "parser/ast.h"
 #include "semantic/type.h"
 #include "memory/wrapper.h"
+#include <stddef.h>
 #include <string.h>
 
 /*
@@ -323,15 +324,24 @@ static struct type *resolve_type_name(struct semantic_context *sc, struct ast_no
 	struct symbol *sym;
 
 	switch (node->tok.type) {
-	case TK_INT:	return sc->t_int;
-	case TK_UINT:	return sc->t_uint;
-	case TK_FLOAT:	return sc->t_float;
-	case TK_DOUBLE:	return sc->t_double;
-	case TK_BOOL:	return sc->t_bool;
-	case TK_CHAR:	return sc->t_char;
-	case TK_STRING:	return sc->t_string;
-	case TK_VOID:	return sc->t_void;
-	case TK_NULL:	return sc->t_null;
+	case TK_INT:
+		return sc->t_int;
+	case TK_UINT:
+		return sc->t_uint;
+	case TK_FLOAT:
+		return sc->t_float;
+	case TK_DOUBLE:
+		return sc->t_double;
+	case TK_BOOL:
+		return sc->t_bool;
+	case TK_CHAR:
+		return sc->t_char;
+	case TK_STRING:
+		return sc->t_string;
+	case TK_VOID:
+		return sc->t_void;
+	case TK_NULL:
+		return sc->t_null;
 	default:
 		break;
 	}
@@ -401,6 +411,7 @@ static void resolve_struct(struct semantic_context *sc, struct ast_node *node)
 	nr = node->list.nr_item;
 	sym->aggregate.members = arena_alloc(&sc->cc->arena, sizeof(*sym->aggregate.members) * nr);
 	sym->aggregate.nr = nr;
+	sym->aggregate.alloc = nr;
 
 	for (i = 0; i < nr; i++) {
 		size_t j;
@@ -448,6 +459,7 @@ static void resolve_enum(struct semantic_context *sc, struct ast_node *node)
 	nr = node->list.nr_item;
 	sym->aggregate.members = arena_alloc(&sc->cc->arena, sizeof(*sym->aggregate.members) * nr);
 	sym->aggregate.nr = nr;
+	sym->aggregate.alloc = nr;
 
 	for (i = 0; i < nr; i++) {
 		member_node = node->list.items[i];
@@ -515,6 +527,159 @@ static void resolve_types(struct semantic_context *sc, struct ast_node *program)
 	}
 }
 
+static void resolve_fn_sig(struct semantic_context *sc, struct ast_node *node,
+			   struct symbol *sym)
+{
+	struct type **param_types;
+	size_t i, nr;
+
+	nr = node->fn_dec.nr_param;
+
+	sym->fn.params = arena_alloc(&sc->cc->arena, sizeof(*sym->fn.params) * nr);
+	sym->fn.nr_param = nr;
+
+	param_types = arena_alloc(&sc->cc->arena, sizeof(*sym->fn.params) * nr);
+
+	for (i = 0; i < nr; i++) {
+		struct ast_node *p = node->fn_dec.params[i];
+		struct symbol *p_sym;
+
+		p_sym = sym_new(sc, SYM_PARAM, p->tok, p);
+		p_sym->type = resolve_type(sc, p->typed.ann);
+		param_types[i] = p_sym->type;
+		p->rsym = p_sym;
+
+		sym->fn.params[i] = p_sym;
+	}
+
+	struct type *ret;
+	if (node->fn_dec.ret_type)
+		ret = resolve_type(sc, node->fn_dec.ret_type);
+	else
+		ret = sc->t_void;
+
+	sym->type = type_fn(sc, param_types, nr, ret, node->fn_dec.is_variadic);
+	sym->resolved_state = RESOLVED;
+}
+
+static void resolve_impl(struct semantic_context *sc, struct ast_node *node)
+{
+	struct symbol *target;
+	size_t i;
+
+	target = scope_lookup(sc->current, node->tok.lex, node->tok.len);
+	if (!target) {
+		diag_emit(&sc->cc->diag, ERROR,
+			  loc_from_token(sc, node->tok),
+			  "impl for unknown type '%.*s'",
+			  (int)node->tok.len, node->tok.lex);
+		return;
+	}
+
+	if (target->kind != SYM_STRUCT && target->kind != SYM_ENUM) {
+		diag_emit(&sc->cc->diag, ERROR, loc_from_token(sc, node->tok),
+			  "cannot impl '%.*s': not a struct or enum",
+			  (int)node->tok.len, node->tok.lex);
+		return;
+	}
+
+	for (i = 0; i < node->list.nr_item; i++) {
+		struct ast_node *fn_node = node->list.items[i];
+		struct symbol *fn_sym;
+		size_t j;
+
+		for (j = 0; j < target->aggregate.nr; j++) {
+			struct symbol *prev = target->aggregate.members[j];
+			if (prev->tok.len == fn_node->tok.len &&
+			    !memcmp(prev->tok.lex, fn_node->tok.lex,
+				    prev->tok.len)) {
+				diag_emit(&sc->cc->diag, ERROR,
+					  loc_from_token(sc, fn_node->tok),
+					  "duplicate method '%.*s' in '%.*s'",
+					  (int)fn_node->tok.len,
+					  fn_node->tok.lex,
+					  (int)node->tok.len,
+					  node->tok.lex);
+				break;
+			}
+		}
+
+		fn_sym = sym_new(sc, SYM_FN, fn_node->tok, fn_node);
+		resolve_fn_sig(sc, fn_node, fn_sym);
+		fn_node->rsym = fn_sym;
+
+		ARENA_ALLOC_GROW(&sc->cc->arena, target->aggregate.members,
+				 target->aggregate.nr + 1, target->aggregate.alloc);
+		target->aggregate.members[target->aggregate.nr++] = fn_sym;
+	}
+}
+
+static void resolve_const(struct semantic_context *sc, struct ast_node *node)
+{
+	struct symbol *sym = node->rsym;
+
+	sym->type = resolve_type(sc, node->const_dec.ann);
+	sym->resolved_state = RESOLVED;
+}
+
+static void resolve_let(struct semantic_context *sc, struct ast_node *node)
+{
+	struct type *ann = NULL;
+	size_t i;
+
+	if (node->let_dec.ann)
+		ann = resolve_type(sc, node->let_dec.ann);
+
+	if (node->let_dec.nr_name == 1 && ann) {
+		node->rsym->type = ann;
+		return;
+	}
+
+	/* infering happens next stage */
+	if (!ann)
+		return;
+
+	if (ann->kind != TY_TUPLE) {
+		diag_emit(&sc->cc->diag, ERROR, loc_from_token(sc, node->tok),
+			  "destructuring requires a tuple type");
+		return;
+	}
+
+	for (i = 0; i < node->let_dec.nr_name; i++) {
+		struct symbol *sym = scope_lookup_local(sc->current,
+							node->let_dec.name[i].lex,
+							node->let_dec.name[i].len);
+		if (sym)
+			sym->type = ann->tuple.elems[i];
+	}
+}
+
+static void resolve_sig(struct semantic_context *sc, struct ast_node *program)
+{
+	size_t i;
+
+	for (i = 0; i < program->block.nr; i++) {
+		struct ast_node *node = program->block.childs[i];
+
+		switch (node->type) {
+		case NODE_FN_DEC:
+			resolve_fn_sig(sc, node, node->rsym);
+			break;
+		case NODE_IMPL_DEC:
+			resolve_impl(sc, node);
+			break;
+		case NODE_CONST_DEC:
+			resolve_const(sc, node);
+			break;
+		case NODE_LET_DEC:
+			resolve_let(sc, node);
+			break;
+		default:
+			break;
+		}
+	}
+}
+
 void semantic_analyze(struct semantic_context *sc, struct ast_node *program)
 {
 	hoist_top(sc, program);
@@ -522,6 +687,10 @@ void semantic_analyze(struct semantic_context *sc, struct ast_node *program)
 		return;
 
 	resolve_types(sc, program);
+	if (diag_has_errors(&sc->cc->diag))
+		return;
+
+	resolve_sig(sc, program);
 	if (diag_has_errors(&sc->cc->diag))
 		return;
 }
