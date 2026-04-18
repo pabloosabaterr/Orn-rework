@@ -1,22 +1,61 @@
-# Orn rework
+# Orn
 
 <p align="center">
 	<img src="assets/ORN.png" alt="Orn Lang Logo" width="120">
 </p>
 
-Orn is a language that aims to be look similar to typecript but with a more
-low-level capabilities along with clear errors.
+Orn is a language inspired by TypeScript-like syntax but with low-level
+capabilities along with clear errors and manual memory management.
 
 ## Introduction
 
-Orn aims to be a low-level language that attracts coders from high-level langs
-like typescript but keeping the things that low-level coders like, providing a
-soft learning curve and a good developer experience.
+Orn is a systems-oriented language that aims for developers coming from
+high-level languages such as TypeScript but also low-level devs that are tired
+of the boilerplate and unreadable code.
 
-This is a rework of the original Orn compiler project, where it was full
-with bad design decisions and a lot of technical debt, but once learned a lot,
-this rework aims for a much better design, cleaner and more maintainable
-codebase.
+Orn brings familiar syntax with low-level capabilities like manual memory
+management, pointers and strong static types while keeping a soft learning curve
+and a good developer experience.
+
+## Examples
+
+**Manual memory**
+```
+struct Stack {
+	data: *int;
+	len: int;
+}
+
+impl Stack {
+	fn push(s: *Stack, val: int) {
+		s.data[s.len] = val;
+		s.len++;
+	}
+
+	fn pop(s: *Stack) -> int {
+		s.len--;
+		return s.data[s.len];
+	}
+}
+```
+**Tagged unions**
+```
+enum Shape {
+	Circle(int),
+	Rect(int, int),
+}
+
+fn area(s: Shape) -> int {
+	match s {
+		Circle(r) => { return r * r * 3; }
+		Rect(w, h) => { return w * h; }
+	}
+}
+```
+
+## Status
+
+Orn is currently being developed, and it is in a very early stage.
 
 ## Architecture
 
@@ -24,27 +63,43 @@ codebase.
 - [Grammar spec](DOCUMENTATION/parser.md):
  the syntax and semantics of the language
 
+### Semantic analysis
+
+Semantic analysis stage is a multi-pass stage that is splitted in 4 main phases:
+
+- **Top hoisting**: Global scope signatures symbols are collected BUT not
+  not resolved because object members/function params may need this symbols,
+  by collecting just the signatures, allows for a more flexible order of
+  declarations
+
+- **Type resolutions**: After the top hoisting, object symbols (enums, structs)
+  and aliases get resolved. Here cicles aliases are detected.
+
+- **Function signature resolution**: The function signatures are resolved,
+  params and return types.
+  Why is this separated from the second phase?
+  Functions can be members of objects with `impl`, objects need to be resolved
+  before the functions in order to be able to add them as members.
+
+- **Check bodies**: After all the above, all context needed for the bodies is
+  resolved, so now the bodies can be checked.
+
 ## Build
 
-```
-make
-```
+`make` builds the compiler at `./build/orn`.
 
-## Usage
+You can run it with: `./build/orn <test-file.orn> <flags>`
 
-```
-make run ARGS="..."
-```
+You can skip the two steps above with: `make run ARGS="<test-file.orn> <flags>"`
 
 ## Tests
 
 ```
 make test           # parallel via prove
-make test-sh        # fallback without prove
+make vtest          # non-parallel with fail hints
+make shtest         # fallback without prove
 ```
-
-Uses `prove` with parallel execution if available, falls back to
-running each script with `sh`. Tests live in `tests/`.
+More info about testing in [Contributing](CONTRIBUTING.md).
 
 ## Code Style
 
@@ -58,17 +113,14 @@ make format         # format all source files
 make check-format   # check without modifying (for CI)
 ```
 
-## Clean
-
-```
-make clean
-```
-
 ## Contributing
 
-See [Contributing.md](DOCUMENTATION/Contributing.md).
+All kinds of contributions are welcome: bug reports, features, documentation,
+tests, etc.
 
-### Contribution
+See [Contributing](CONTRIBUTING.md).
+
+### Contribution License
 
 Unless you explicitly state otherwise, any contribution intentionally
 submitted for inclusion in Orn by you, as defined in the Apache-2.0

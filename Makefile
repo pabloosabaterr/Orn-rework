@@ -16,7 +16,10 @@ T = $(wildcard tests/t[0-9]*.sh)
 test: all
 	$(PROVE) --exec sh -j$$(nproc) $(T)
 
-test-sh: all
+vtest: all
+	$(PROVE) --exec sh --directives $(T)
+
+shtest: all
 	@for t in $(T); do echo "$$t"; sh "$$t" || exit 1; done
 
 format:

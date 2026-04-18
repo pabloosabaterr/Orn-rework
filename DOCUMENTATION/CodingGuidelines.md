@@ -47,6 +47,49 @@ if (condition) {
 - Redirections without space after the operator: `echo hello >file`.
 - Use `type` instead of `which` to check for commands.
 
+### Test structure
+
+Test files live in `tests/` and follow the naming pattern
+`txxxx-<topic>.sh`. Each file sources the test framework and defines
+individual test cases:
+
+```sh
+#!/bin/sh
+
+# shellcheck disable=SC1091,SC2016,SC2034
+. "$(dirname "$0")/test-lib.sh"
+
+test_expect_success 'line comments are skipped' '
+	cat >input.orn <<-\EOF &&
+	x // this is a comment
+	y
+	EOF
+	"$ORN" --dump-tokens input.orn >actual &&
+	cat >expect <<-\EOF &&
+	x [ID] - 1:0
+	y [ID] - 2:0
+	Program compiled with 0 errors
+	EOF
+	test_cmp expect actual
+'
+
+test_done
+```
+
+Mark tests for known failures with `test_expect_failure` and add a
+`NEEDSWORK` comment in the relevant source file. e.g:
+
+```sh
+test_expect_failure 'invalid escape sequence should be rejected' '
+	cat >input.orn <<-\EOF &&
+	fn foo() {
+		let s: string = "\q";
+	}
+	EOF
+	test_must_fail "$ORN" input.orn 2>/dev/null
+'
+```
+
 ## Commits
 
 - Subject line: max 72 characters, imperative mood ("Add feature" not
