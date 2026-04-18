@@ -33,10 +33,10 @@ test_expect_failure () {
 	if ! eval "$*"
 	then
 		pass_count=$((pass_count + 1))
-		echo "ok $test_count - $desc"
+		echo "not ok $test_count - $desc # TODO known failure"
 	else
 		fail_count=$((fail_count + 1))
-		echo "not ok $test_count - $desc"
+		echo "ok $test_count - $desc # TODO fixed, change to test_expect_success"
 	fi
 }
 

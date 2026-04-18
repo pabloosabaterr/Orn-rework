@@ -139,7 +139,8 @@ static struct ast_node *parse_type(struct parser_context *p)
 	switch (tok.type) {
 	case TK_INT:
 	case TK_UINT:
-	case TK_FLOATING:
+	case TK_FLOAT:
+	case TK_DOUBLE:
 	case TK_STRING:
 	case TK_CHAR:
 	case TK_BOOL:
@@ -297,7 +298,7 @@ static struct ast_node *parse_primary(struct parser_context *p)
 }
 
 /*
- * #NEEDSWORK: Pratt parsing would fit nice to avoid having too many functions
+ * NEEDSWORK: Pratt parsing would fit nice to avoid having too many functions
  * that do the same thing
  */
 static struct ast_node *parse_postfix(struct parser_context *p)
@@ -389,7 +390,22 @@ static struct ast_node *parse_unary(struct parser_context *p)
 	    check(p, TK_STAR)) {
 		struct token op = advance(p);
 		struct ast_node *node = ast_node_new(p->arena, NODE_UNARY, op);
-		node->unary.type = token_to_op(op.type);
+
+		switch (op.type) {
+		case TK_STAR:
+			node->unary.type = OP_DEREF;
+			break;
+		case TK_AMP:
+			node->unary.type = OP_ADDR;
+			break;
+		case TK_MINUS:
+			node->unary.type = OP_NEG;
+			break;
+		default:
+			node->unary.type = token_to_op(op.type);
+			break;
+		}
+
 		node->unary.operand = parse_unary(p);
 		return node;
 	}
@@ -630,6 +646,27 @@ static struct ast_node *parse_match_pattern(struct parser_context *p)
 	 */
 	if (check(p, TK_ID)) {
 		struct token id = advance(p);
+
+		if (check(p, TK_NAMESPACE)) {
+			advance(p);
+			expect(p, TK_ID);
+			struct ast_node *ns = ast_node_new(p->arena,
+							   NODE_NAMESPACE,
+							   p->prev);
+			ns->namespace.left = ast_node_new(p->arena,
+							  NODE_ID, id);
+
+			node = ast_node_new(p->arena, NODE_MATCH_PATTERN, id);
+			node->match_pattern.expr = ns;
+
+			if (match(p, TK_LPAREN)) {
+				node->match_pattern.bind =
+					parse_id_list(p, &node->match_pattern.nr_bind);
+				expect(p, TK_RPAREN);
+			}
+			return node;
+		}
+
 		node = ast_node_new(p->arena, NODE_MATCH_PATTERN, id);
 		node->match_pattern.expr = ast_node_new(p->arena, NODE_ID, id);
 

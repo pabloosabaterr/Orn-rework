@@ -53,6 +53,11 @@ struct symbol {
 			size_t nr_locals;
 			size_t alloc_locals;
 		} fn;
+		/*
+		 * NEEDSWORK: members are linearly searched which can be slow
+		 * if there are enough of them to be. This could use a hash
+		 * table after a threshold.
+		 */
 		struct {
 			struct symbol **members;
 			size_t nr;
@@ -70,6 +75,20 @@ struct symbol {
 	};
 };
 
+/*
+ * NEEDSWORK: Scope lookup is linear. This means that walking to through up to
+ * the global scope is O(n * m) where n is the depth of the scope and m is the
+ * symbols in each scope and it can be worse if it's needed to check the object
+ * members,being O(n * m * k) where k is the number of members.
+ *
+ * This could be improved by:
+ *
+ * - Symbols do not need to be ordered so they could be in a hash table instead
+ *   of an array. Could be used linear and swap to hash after a certain threshold.
+ *
+ * - Primarily the lookups are going to search types so, a global scope hash
+ *   table (where most of the objects live) might be significant improvement.
+ */
 struct scope {
 	struct scope *parent;
 	struct symbol **symbols;

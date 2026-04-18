@@ -310,6 +310,9 @@ static struct token token_number(struct lexer_context *lexer, const char *start)
 			    (size_t)(lexer->current - start));
 }
 
+/*
+ * NEEDSWORK: invalid escape sequences needs to be detected and reported
+ */
 static struct token token_stringlit(struct lexer_context *lexer, const char *start)
 {
 	int start_line = lexer->line;
@@ -330,6 +333,9 @@ static struct token token_stringlit(struct lexer_context *lexer, const char *sta
 	return create_token(TK_STRINGLIT, start, (size_t)(lexer->current - start));
 }
 
+/*
+ * NEEDSWORK: invalid escape sequences needs to be detected and reported
+ */
 static struct token token_charlit(struct lexer_context *lexer, const char *start)
 {
 	int start_line = lexer->line;

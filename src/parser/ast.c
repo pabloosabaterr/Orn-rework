@@ -89,7 +89,7 @@ enum op_type token_to_op(enum token_type type)
 	}
 }
 
-static const char *op_name(enum op_type op)
+const char *op_name(enum op_type op)
 {
 	static const char *names[] = {
 		[OP_ADD] = "+",

@@ -234,4 +234,13 @@ test_expect_success 'unterminated block comment reports error' '
 	test_cmp expect.err actual.err
 '
 
+test_expect_failure 'invalid escape sequence should be rejected' '
+	cat >input.orn <<-\EOF &&
+	fn foo() {
+		let s: string = "\q";
+	}
+	EOF
+	test_must_fail "$ORN" input.orn 2>/dev/null
+'
+
 test_done

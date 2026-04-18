@@ -284,5 +284,6 @@ void ast_node_append(struct arena *a, struct ast_node *block,
 		     struct ast_node *child);
 enum op_type token_to_op(enum token_type type);
 void ast_dump(struct ast_node *node);
+const char *op_name(enum op_type type);
 
 #endif

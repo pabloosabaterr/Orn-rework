@@ -45,7 +45,7 @@ struct type {
 		} named;
 		struct {
 			struct symbol *dec;
-			struct symbol *resolved;
+			struct type *resolved;
 		} alias;
 		struct {
 			struct type **params;
