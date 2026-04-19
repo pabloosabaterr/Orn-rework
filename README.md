@@ -53,6 +53,9 @@ fn area(s: Shape) -> int {
 }
 ```
 
+Take a look at the [Orn Book](https://pabloosabaterr.github.io/Orn-rework/)
+for documentation about Orn.
+
 ## Status
 
 Orn is currently being developed, and it is in a very early stage.

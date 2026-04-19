@@ -1,7 +1,24 @@
 [book]
-title = "Orn Language Reference"
+title = "Orn Lang"
 authors = ["Pablo Sabater Jimenez"]
 language = "en"
 
 [build]
 build-dir = "book"
+
+[output.html]
+additional-css = ["theme/reference.css"]
+additional-js = ["theme/highlight-orn.js"]
+default-theme = "light"
+preferred-dark-theme = "navy"
+smart-punctuation = true
+admonitions = true
+git-repository-url = "https://github.com/pabloosabaterr/Orn-rework"
+git-repository-icon = "fab-github"
+
+[output.html.fold]
+enable = true
+level = 0
+
+[output.html.search]
+use-boolean-and = true

@@ -29,5 +29,8 @@ check-format:
 	clang-format --dry-run --Werror $(SRC) && \
 	! grep -Pn '.{81}' --include='*.md' -r . | grep -v 'http\|badge'
 
+work:
+	grep -r "NEEDSWORK" src/ docs/src/NEEDSWORK.md --color=always
+
 clean:
 	rm -rf build/

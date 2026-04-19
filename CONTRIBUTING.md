@@ -7,8 +7,8 @@ what you'd like to have implemented, to writing code and documentation.
 All contributions are welcome.
 
 To make it easier for new folks to contribute, throughout the code there are
-`NEEDSWORK` tags, that can be found with `grep -r NEEDSWORK` and are a
-good place to start if you want to.
+`NEEDSWORK` tags, that can be found with `make work` and they are a
+good place to start looking where to help.
 Most of them are improvements that 'work' but could be better, such as an array
 that is linearly searched that could be replaced with hash table, or functions
 that start to be too big to be maintained properly.

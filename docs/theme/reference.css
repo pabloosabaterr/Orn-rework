@@ -1,0 +1,166 @@
+/* Theme variables */
+.light {
+    --alert-note-color: #0969da;
+    --alert-warning-color: #9a6700;
+    --alert-example-color: #8250df;
+}
+.rust {
+    --alert-note-color: #023b95;
+    --alert-warning-color: #603700;
+    --alert-example-color: #8250df;
+}
+.coal, .navy {
+    --alert-note-color: #4493f8;
+    --alert-warning-color: #d29922;
+    --alert-example-color: #ab7df8;
+}
+.ayu {
+    --alert-note-color: #74b9ff;
+    --alert-warning-color: #f0b72f;
+    --alert-example-color: #d3abff;
+}
+
+.light .content h4 a {
+    color: #6e7781 !important;
+}
+.rust .content h4 a {
+    color: #7d7a6c !important;
+}
+.coal .content h4 a,
+.navy .content h4 a,
+.ayu .content h4 a {
+    color: #7d8590 !important;
+}
+
+/* Admonitions */
+.alert blockquote {
+    padding: 8px 0px 8px 20px;
+    border-inline-start-style: solid;
+    border-inline-start-width: 4px;
+    background-color: inherit;
+    border-block-start: none;
+    border-block-end: none;
+    margin: 10px 0;
+}
+
+.alert-title {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    margin: 0 0 8px 0 !important;
+}
+.alert blockquote > :nth-child(2) {
+    margin-top: 0;
+}
+.alert blockquote > :last-child {
+    margin-bottom: 0;
+}
+
+.alert-title svg {
+    fill: currentColor;
+    margin-right: 8px;
+}
+
+.alert-note blockquote {
+    border-inline-start-color: var(--alert-note-color);
+}
+.alert-warning blockquote {
+    border-inline-start-color: var(--alert-warning-color);
+}
+.alert-example blockquote {
+    border-inline-start-color: var(--alert-example-color);
+}
+.alert-note .alert-title {
+    color: var(--alert-note-color);
+}
+.alert-warning .alert-title {
+    color: var(--alert-warning-color);
+}
+.alert-example .alert-title {
+    color: var(--alert-example-color);
+}
+
+/* Orn highlight */
+
+pre code.language-orn.hljs {
+  background: transparent;
+  color: #e2e8f0;
+  font-family: "Fira Code", monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+pre {
+  background: #282D3F;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+pre code,
+pre code.hljs {
+  background: transparent;
+  font-family: "Fira Code", monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: #e2e8f0;
+}
+
+/* Orn tokens */
+pre code.language-orn .hljs-keyword,
+pre code.lang-orn .hljs-keyword {
+  color: #c084fc;
+}
+
+pre code.language-orn .hljs-type,
+pre code.lang-orn .hljs-type {
+  color: #38bdf8;
+}
+
+pre code.language-orn .hljs-string,
+pre code.lang-orn .hljs-string {
+  color: #22c55e;
+}
+
+pre code.language-orn .hljs-number,
+pre code.lang-orn .hljs-number {
+  color: #f59e0b;
+}
+
+pre code.language-orn .hljs-function .hljs-title,
+pre code.lang-orn .hljs-function .hljs-title {
+  color: #f8fafc;
+}
+
+pre code.language-orn .hljs-title,
+pre code.lang-orn .hljs-title {
+  color: #60a5fa;
+}
+
+pre code.language-orn .hljs-comment,
+pre code.lang-orn .hljs-comment {
+  color: #64748b;
+  font-style: italic;
+}
+
+pre code.language-orn .hljs-params,
+pre code.lang-orn .hljs-params {
+  color: #cbd5e1;
+}
+
+blockquote {
+	border: none;
+	border-left: 2px solid #64748b;
+	padding: 4px 12px;
+	margin: 12px 0;
+	color: #94a3b8;
+	font-size: 13px;
+	background: none;
+}
+
+blockquote p {
+	margin: 0;
+}

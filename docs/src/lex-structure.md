@@ -50,8 +50,8 @@ Identifiers that are are valid:
 - `foo_bar`
 - `FOO`
 
-> Identifiers that start with an underscore are usually used for intentionally
-> unused variables, for example:
+Identifiers that start with an underscore are usually used for intentionally
+unused variables, for example:
 
 ```orn
 fn foo() {
@@ -67,9 +67,9 @@ This won't trigger `unused variable` warning.
 NUMBER = DECIMAL | HEX_LITERAL | OCT_LITERAL | BIN_LITERAL
 
 DECIMAL = [0-9]+ ("." [0-9]+)?
-HEX_LITERAL = "0x" [0-9a-fA-F]+
-OCT_LITERAL = "0o" [0-7]+
-BIN_LITERAL = "0b" [01]+
+HEX_LITERAL = "0" ("x" | "X") [0-9a-fA-F]+
+OCT_LITERAL = "0" ("o" | "O") [0-7]+
+BIN_LITERAL = "0" ("b" | "B") [01]+
 
 STRING_LITERAL = "\"" (escape | [^"\\])* "\""
 CHAR_LITERAL = "'" (escape | [^'\\]) "'"
