@@ -3,8 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Page not found - Orn Lang</title>
-        <base href="/">
+        <title>Roadmap - Orn Lang</title>
 
 
         <!-- Custom HTML head -->
@@ -195,14 +194,117 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="document-not-found-404"><a class="header" href="#document-not-found-404">Document not found (404)</a></h1>
-<p>This URL is invalid, sorry. Please use the navigation bar or search to continue.</p>
+                        <h1 id="roadmap"><a class="header" href="#roadmap">Roadmap</a></h1>
+<p>The roadmap for Orn is what is expected to keep developing after v1.0. It’s not
+a strict plan as the development of Orn is still in early stages, but it gives
+a well scoped idea of how it is the view for Orn.</p>
+<h2 id="match-and-if-expressions"><a class="header" href="#match-and-if-expressions">Match and if expressions</a></h2>
+<p>If and match statements become valid expressions:</p>
+<pre><code class="language-orn">let x = if cond {...} else {...}
+</code></pre>
+<pre><code class="language-orn">let msg = match (result) {
+	Ok(n) =&gt; { format(n) }
+	Err(e) =&gt; { log(e); "error" }
+	_ =&gt; { "unknown" }
+};
+</code></pre>
+<p>Not like ternaries, these expressions allow for logic inside them.</p>
+<h2 id="null-safety"><a class="header" href="#null-safety">null safety</a></h2>
+<p>Optional types to prevent null pointer dereferences. Not like Rust safety, here
+pointers can be null, but the code guides the programmer to handle nullability.</p>
+<pre><code class="language-orn">let p: ?*int = get_ptr();
+// gotta check if p is null before deref
+</code></pre>
+<h2 id="methods-and-self-keyword"><a class="header" href="#methods-and-self-keyword">Methods and self keyword</a></h2>
+<p>The <code>self</code> keyword is a great way to make the code more readable this allows
+enums and structs to have methods different from static functions:</p>
+<pre><code class="language-orn">struct Point {
+	x: int;
+	y: int;
+}
+
+impl Point {
+	fn translate(*self, dx: int, dy: int) {
+		self.x += dx;
+		self.y += dy;
+	}
+}
+
+let p = Point { x: 10, y: 20 };
+p.translate(5, 10);
+</code></pre>
+<h2 id="generics-and-traits"><a class="header" href="#generics-and-traits">Generics and traits</a></h2>
+<pre><code class="language-orn">trait Printable {
+	fn print(*self) -&gt; void;
+}
+
+fn show&lt;T: Printable&gt;(x: T) {
+	x.print();
+}
+
+struct Point {
+	x: int;
+	y: int;
+}
+
+impl Point : Printable {
+	fn print(*self) -&gt; void {
+		// ...
+	}
+}
+
+let p = Point { x: 10, y: 20 };
+show(p);
+
+</code></pre>
+<p>traits are a way to set contracts for Generics, instead of being just “anything”
+they are “anything that implements this trait”.</p>
+<h2 id="decorators-and-preprocessor"><a class="header" href="#decorators-and-preprocessor">Decorators and preprocessor</a></h2>
+<pre><code class="language-orn">
+@inline
+fn foo //...
+</code></pre>
+<pre><code class="language-orn">@pre(x &gt;= 0)
+@post(ret &gt;= 0)
+fn foo(x: int) -&gt; int {
+	x * 2
+}
+</code></pre>
+<p>This decorators are just ideas of what it could be; for <code>@pre</code> would make x
+range different for the scope as the range after <code>@pre(x &gt; 0)</code> would change from
+[-INT_MAX, INT_MAX] to [0, INT_MAX] which fits inside <code>unsigned</code> without data
+loss, and making the compiler know that.</p>
+<p>other decorators ideas are:</p>
+<ul>
+<li><code>@deprecated</code> - throw a warning when used.</li>
+<li><code>@debug</code> - execute an additional code when –debug flag is set.</li>
+<li><code>@use</code> - instead of the trait being in the <code>impl</code>, this goes above a impl,
+following the previous example:</li>
+</ul>
+<pre><code class="language-orn">@use(Printable)
+impl Point {
+	fn print(*self) -&gt; void {
+		// ...
+	}
+}
+</code></pre>
+<h2 id="closures-and-lambdas"><a class="header" href="#closures-and-lambdas">Closures and lambdas</a></h2>
+<p>Anonymous functions that can be assigned to variables, be a type or passed as
+arguments:</p>
+<pre><code class="language-orn">let add = (a: int, b: int) -&gt; int { a + b };
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="lex-structure.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
 
+                            <a rel="next prefetch" href="NEEDSWORK.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -210,7 +312,13 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="lex-structure.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
 
+                    <a rel="next prefetch" href="NEEDSWORK.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
             </nav>
 
         </div>
