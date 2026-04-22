@@ -21,6 +21,16 @@ void arena_init(struct arena *arena, size_t init)
 	arena->next_buffer_size = init;
 }
 
+/*
+ * NEEDSWORK: resolve checkpoint-endings fragmentation by having an array of
+ * left over size and the pointer to the last offset of the chunk.
+ * This way if something fits in the leftover memory it gets stored in a previous
+ * chunk instead of the current one.
+ * Having n chunks this new array should have only "left" chunks thus it
+ * must have n-1 elements; If an allocation fits inside a left chunk, the
+ * entry should be edited instead of adding a new one. THE NEW SIZE MUST BE
+ * ALIGNED
+ */
 void *arena_alloc(struct arena *arena, size_t size)
 {
 	void *ptr;
