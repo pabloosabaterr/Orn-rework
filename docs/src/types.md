@@ -154,7 +154,7 @@ fn get_color() -> Color {
 ```
 
 ```orn
-match (color) {
+match color {
 	::Red => { ... } // the object is inferred from the matched value
 	::Green => { ... }
 	_ => { ... }

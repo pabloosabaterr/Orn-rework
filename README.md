@@ -66,26 +66,8 @@ Orn is currently being developed, and it is in a very early stage.
 - [Grammar spec](DOCUMENTATION/parser.md):
  the syntax and semantics of the language
 
-### Semantic analysis
-
-Semantic analysis stage is a multi-pass stage that is splitted in 4 main phases:
-
-- **Top hoisting**: Global scope signatures symbols are collected BUT not
-  not resolved because object members/function params may need this symbols,
-  by collecting just the signatures, allows for a more flexible order of
-  declarations
-
-- **Type resolutions**: After the top hoisting, object symbols (enums, structs)
-  and aliases get resolved. Here cicles aliases are detected.
-
-- **Function signature resolution**: The function signatures are resolved,
-  params and return types.
-  Why is this separated from the second phase?
-  Functions can be members of objects with `impl`, objects need to be resolved
-  before the functions in order to be able to add them as members.
-
-- **Check bodies**: After all the above, all context needed for the bodies is
-  resolved, so now the bodies can be checked.
+for information about the semantic phase see
+[Semantic Pass](https://pabloosabaterr.github.io/Orn-rework/semantic-pass.html)
 
 ## Build
 

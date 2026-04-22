@@ -1,9 +1,10 @@
 # Summary
 
 - [Introduction](introduction.md)
-- [Syntax]()
+- [Syntax](syntax.md)
   - [Program structure](program-structure.md)
   - [Types](types.md)
 - [Lexical Structure](lex-structure.md)
+- [Semantic Pass](semantic-pass.md)
 - [Roadmap](Roadmap.md)
 - [NEEDSWORK](NEEDSWORK.md)

@@ -35,4 +35,4 @@ This means that the order of signatures does not matter, but the order
 of statements does.
 
 For more information about the semantics of Orn, see
-[semantic analysis](NEEDSWORK.md).
+[Semantic analysis](semantic-pass.md).
