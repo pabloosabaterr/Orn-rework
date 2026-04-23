@@ -7,6 +7,7 @@
 struct compiler_options {
 	unsigned dump_tokens:1;
 	unsigned dump_ast:1;
+	unsigned dump_ir:1;
 };
 
 struct compiler_context {

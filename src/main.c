@@ -59,6 +59,8 @@ int main(int argc, char **argv)
 			options.dump_tokens = 1;
 		else if (!strcmp(argv[i], "--dump-ast"))
 			options.dump_ast = 1;
+		else if (!strcmp(argv[i], "--dump-ir"))
+			options.dump_ir = 1;
 		else if (argv[i][0] == '-')
 			die("unknown option '%s'", argv[i]);
 		else if (!filename)
@@ -111,6 +113,12 @@ int main(int argc, char **argv)
 		goto report;
 
 	ir_init(&ic, &cc);
+
+	if (options.dump_ir) {
+		ir_lower(&ic, program);
+		ir_dump(ic.module);
+		goto report;
+	}
 
 report:
 	diag_flush(&cc.diag, stderr);

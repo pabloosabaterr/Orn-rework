@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 struct compiler_context;
+struct ast_node;
 
 enum ir_op {
 	IR_ADD,
@@ -72,8 +73,8 @@ struct ir_type {
 
 struct ir_operand {
 	/*
-	  * static id
-	  */
+	 * static id
+	 */
 	unsigned sid;
 	struct ir_type *type;
 	struct ir_inst *def;
@@ -81,6 +82,7 @@ struct ir_operand {
 
 struct ir_inst {
 	enum ir_op op;
+	long long imm;
 	/*
 	 * Output operand; can be NULL.
 	 */
@@ -111,11 +113,12 @@ struct ir_block {
 
 struct ir_function {
 	const char *name;
+	size_t name_len;
 	struct ir_type *ret_type;
 	/*
 	 * Can be NULL; from NULL to n.
 	 */
-	struct ir_operand **params;
+	struct ir_operand *params;
 	size_t nr_param;
 
 	struct ir_block **blocks;
@@ -132,6 +135,11 @@ struct ir_module {
 
 struct ir_context {
 	struct compiler_context *cc;
+	size_t next_id;
+	struct ir_module *module;
+
+	struct ir_function *current_fn;
+	struct ir_block *current_block;
 
 	/* singleton */
 	struct ir_type *t_i1;
@@ -160,5 +168,7 @@ struct ir_context {
 };
 
 void ir_init(struct ir_context *ic, struct compiler_context *cc);
+void ir_dump(struct ir_module *module);
+void ir_lower(struct ir_context *ic, struct ast_node *program);
 
 #endif
