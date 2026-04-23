@@ -62,6 +62,8 @@ Orn is currently being developed, and it is in a very early stage.
 
 ## Architecture
 
+![Compiler pipeline](assets/compiler-pipeline.svg)
+
 - [Lexer](DOCUMENTATION/lexer.md): tokenization and lexical analysis
 - [Grammar spec](DOCUMENTATION/parser.md):
  the syntax and semantics of the language
