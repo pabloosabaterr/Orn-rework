@@ -1,5 +1,6 @@
 #include "compiler.h"
 #include "diagnostic/diagnostic.h"
+#include "ir/ir.h"
 #include "lexer/lexer.h"
 #include "parser/ast.h"
 #include "parser/parser.h"
@@ -47,6 +48,7 @@ int main(int argc, char **argv)
 	struct lexer_context lexer;
 	struct parser_context parser;
 	struct semantic_context sem;
+	struct ir_context ic;
 	struct ast_node *program;
 	char *src = NULL;
 	const char *filename = NULL;
@@ -97,6 +99,18 @@ int main(int argc, char **argv)
 
 	sem_init(&sem, &cc);
 	semantic_analyze(&sem, program);
+
+	/*
+	 * After the semantic pass there is no interest of trying to keep if
+	 * there is an error; any user error should have been already reported
+	 * during the lexer-parser-semantic, IR should only receive correct
+	 * ASTs.
+	 * Errors after that are compiler errors.
+	 */
+	if (diag_has_errors(&cc.diag))
+		goto report;
+
+	ir_init(&ic, &cc);
 
 report:
 	diag_flush(&cc.diag, stderr);

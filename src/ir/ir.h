@@ -159,4 +159,6 @@ struct ir_context {
 	size_t alloc_fn;
 };
 
+void ir_init(struct ir_context *ic, struct compiler_context *cc);
+
 #endif

@@ -59,6 +59,10 @@ void *arena_realloc(struct arena *arena, void *ptr, size_t old_size, size_t new_
 {
 	void *new_ptr;
 
+	/*
+	 * If the pointer is the last allocated, try to allocate the new size
+	 * without having to copy in a new address what was previously allocated
+	 */
 	if (ptr && (char *)ptr + old_size == arena->head->ptr + arena->offset) {
 		size_t start = (char *)ptr - arena->head->ptr;
 		if (start + new_size <= arena->head->size) {
