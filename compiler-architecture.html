@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Lexical Structure - Orn Lang</title>
+        <title>Compiler Architecture - Orn Lang</title>
 
 
         <!-- Custom HTML head -->
@@ -194,178 +194,18 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="keywords"><a class="header" href="#keywords">Keywords</a></h1>
-<p>Orn has some reserved keywords that they cannot be used as identifiers or
-outside of their proper contexts. These are:</p>
-<ul>
-<li><code>int</code></li>
-<li><code>unsigned</code></li>
-<li><code>double</code></li>
-<li><code>float</code></li>
-<li><code>bool</code></li>
-<li><code>void</code></li>
-<li><code>char</code></li>
-<li><code>string</code></li>
-<li><code>if</code></li>
-<li><code>else</code></li>
-<li><code>elif</code></li>
-<li><code>while</code></li>
-<li><code>ret</code></li>
-<li><code>break</code></li>
-<li><code>continue</code></li>
-<li><code>struct</code></li>
-<li><code>enum</code></li>
-<li><code>import</code></li>
-<li><code>true</code></li>
-<li><code>false</code></li>
-<li><code>let</code></li>
-<li><code>const</code></li>
-<li><code>fn</code></li>
-<li><code>sizeof</code></li>
-<li><code>syscall</code></li>
-<li><code>for</code></li>
-<li><code>in</code></li>
-<li><code>match</code></li>
-<li><code>defer</code></li>
-<li><code>impl</code></li>
-<li><code>type</code></li>
-<li><code>as</code></li>
-<li><code>null</code></li>
-</ul>
-<h2 id="identifiers"><a class="header" href="#identifiers">Identifiers</a></h2>
-<pre><code>IDENTIFIER = [a-zA-Z_] [a-zA-Z0-9_]*
-</code></pre>
-<p>Identifiers that are are valid:</p>
-<ul>
-<li><code>foo</code></li>
-<li><code>_foo</code></li>
-<li><code>foo123</code></li>
-<li><code>foo_bar</code></li>
-<li><code>FOO</code></li>
-</ul>
-<p>Identifiers that start with an underscore are usually used for intentionally
-unused variables, for example:</p>
-<pre><code class="language-orn">fn foo() {
-	let _unused = 42;
-}
-</code></pre>
-<p>This won’t trigger <code>unused variable</code> warning.</p>
-<h2 id="literals"><a class="header" href="#literals">Literals</a></h2>
-<pre><code>NUMBER = DECIMAL | HEX_LITERAL | OCT_LITERAL | BIN_LITERAL
-
-DECIMAL = [0-9]+ ("." [0-9]+)?
-HEX_LITERAL = "0" ("x" | "X") [0-9a-fA-F]+
-OCT_LITERAL = "0" ("o" | "O") [0-7]+
-BIN_LITERAL = "0" ("b" | "B") [01]+
-
-STRING_LITERAL = "\"" (escape | [^"\\])* "\""
-CHAR_LITERAL = "'" (escape | [^'\\]) "'"
-
-escape = "\\" [nrt0\\'"x] | "\\x" [0-9a-fA-F]{2}
-
-bool_literals = TRUE | FALSE
-</code></pre>
-<p>Number literals:</p>
-<ul>
-<li><code>42</code></li>
-<li><code>3.14</code></li>
-<li><code>0x2A</code></li>
-<li><code>0o52</code></li>
-<li><code>0b101010</code></li>
-</ul>
-<p>Hex, octal and binary becomes decimal numbers at compile time at the parser.</p>
-<p>String literals:</p>
-<ul>
-<li><code>"Hello, world!"</code></li>
-<li><code>"Line 1\nLine 2"</code></li>
-</ul>
-<p>Character literals:</p>
-<ul>
-<li><code>'a'</code></li>
-<li><code>'\n'</code></li>
-</ul>
-<p>Bool literals:</p>
-<ul>
-<li><code>true</code></li>
-<li><code>false</code></li>
-</ul>
-<h2 id="operators-and-punctuation"><a class="header" href="#operators-and-punctuation">Operators and Punctuation</a></h2>
-<h3 id="punctuation"><a class="header" href="#punctuation">Punctuation</a></h3>
-<p>Punctuation tokens are used as operators, separators, and delimiters.</p>
-<pre><code>PUNCTUATION = "..."
-            | "+="
-            | "-="
-            | "*="
-            | "/="
-            | "%="
-            | "=="
-            | "!="
-            | "&lt;="
-            | "&gt;="
-            | "&lt;&lt;"
-            | "&gt;&gt;"
-            | "&amp;&amp;"
-            | "||"
-            | "-&gt;"
-            | "&lt;-"
-            | "=&gt;"
-            | "::"
-            | ".."
-            | "++"
-            | "--"
-            | "+"
-            | "-"
-            | "*"
-            | "/"
-            | "%"
-            | "!"
-            | "~"
-            | "&amp;"
-            | "|"
-            | "^"
-            | "="
-            | "&lt;"
-            | "&gt;"
-            | "."
-            | ","
-            | ":"
-            | ";"
-            | "?"
-            | "_"
-            | "("
-            | ")"
-            | "{"
-            | "}"
-            | "["
-            | "]"
-</code></pre>
-<p>Multi character tokens are matched longest first.</p>
-<h3 id="delimiters"><a class="header" href="#delimiters">Delimiters</a></h3>
-<p>Bracket punctuation must always appear in matched pairs. The three
-types are:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Bracket</th><th>Name</th></tr>
-</thead>
-<tbody>
-<tr><td><code>{ }</code></td><td>braces</td></tr>
-<tr><td><code>[ ]</code></td><td>brackets</td></tr>
-<tr><td><code>( )</code></td><td>parentheses</td></tr>
-</tbody>
-</table>
-</div>
-<p>An unmatched delimiter is a compile error.</p>
+                        <h1 id="compiler-architecture"><a class="header" href="#compiler-architecture">Compiler Architecture</a></h1>
+<p><img src="assets/compiler-pipeline-vert.svg" alt="Compiler pipeline"></p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="types.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="semantic-pass.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="semantic-pass.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="Roadmap.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -375,11 +215,11 @@ types are:</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="types.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="semantic-pass.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="semantic-pass.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="Roadmap.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
