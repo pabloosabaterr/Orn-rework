@@ -243,4 +243,21 @@ test_expect_failure 'invalid escape sequence should be rejected' '
 	test_must_fail "$ORN" input.orn 2>/dev/null
 '
 
+test_expect_success 'undescore name is gets correctly tokenized' '
+	cat >input.orn <<-\EOF &&
+	fn _foo() {}
+	EOF
+	"$ORN" --dump-tokens input.orn >actual &&
+	cat >expect <<-\EOF &&
+	fn [fn] - 1:0
+	_foo [ID] - 1:3
+	( [LPAREN] - 1:7
+	) [RPAREN] - 1:8
+	{ [LBRACE] - 1:10
+	} [RBRACE] - 1:11
+	Program compiled with 0 errors
+	EOF
+	test_cmp expect actual
+'
+
 test_done

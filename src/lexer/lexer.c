@@ -500,6 +500,8 @@ struct token token_next(struct lexer_context *lexer)
 	case ',':
 		return create_token(TK_COMMA, start, 1);
 	case '_':
+		if (isalnum(*lexer->current) || *lexer->current == '_')
+			return token_id(lexer, start);
 		return create_token(TK_UNDERSCORE, start, 1);
 	case '.':
 		if (follow_next(lexer, '.')) {
