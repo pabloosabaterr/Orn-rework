@@ -260,4 +260,22 @@ test_expect_success 'undescore name is gets correctly tokenized' '
 	test_cmp expect actual
 '
 
+test_expect_success 'error after number prefix with no digits' '
+	echo "0x" >input.orn &&
+	test_must_fail "$ORN" --dump-tokens input.orn >actual.out 2>actual.err &&
+	cat >expect.out <<-\EOF &&
+	Program compiled with 1 error
+	EOF
+	cat >expect.err <<-\EOF &&
+	error: expected digits after the prefix
+	 --> input.orn:1:0
+	   |
+	 1 | 0x
+	   | ^~
+	EOF
+	test_cmp expect.out actual.out &&
+	test_cmp expect.err actual.err
+
+'
+
 test_done
