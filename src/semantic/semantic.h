@@ -1,6 +1,7 @@
 #ifndef SEMANTIC_H
 #define SEMANTIC_H
 
+#include "memory/hashmap.h"
 #include "semantic/type.h"
 #include "lexer/lexer.h"
 #include <stddef.h>
@@ -91,9 +92,7 @@ struct symbol {
  */
 struct scope {
 	struct scope *parent;
-	struct symbol **symbols;
-	size_t nr;
-	size_t alloc;
+	struct hashmap symbols;
 };
 
 struct semantic_context {
