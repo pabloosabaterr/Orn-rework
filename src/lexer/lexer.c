@@ -207,28 +207,28 @@ static struct token error_token(struct lexer_context *lexer, const char *start,
 	return (struct token){ TK_ERROR, start, len, line, col };
 }
 
-static int try_ignore_comments(struct lexer_context *lexer)
+static void try_ignore_comments(struct lexer_context *lexer)
 {
 	if (is_next(lexer, '/')) {
 		advance(lexer);
 		while (!is_end(lexer) && !is_next(lexer, '\n'))
 			advance(lexer);
-		return 1;
+		return;
 	} else if (is_next(lexer, '*')) {
 		int start_line = lexer->line;
-		int start_col = lexer->col;
+		int start_col = lexer->col - 1;
 		const char *start = lexer->current - 1;
 
 		advance(lexer);
 		while (!is_end(lexer)) {
 			if (follow_next(lexer, '*') && follow_next(lexer, '/'))
-				return 1;
+				return;
 			advance(lexer);
 		}
 		error_token(lexer, start, 2, start_line, start_col, "unterminated block comment");
-		return 1;
+		return;
 	}
-	return 0;
+	return;
 }
 
 static void skip_noise(struct lexer_context *lexer)
@@ -242,11 +242,12 @@ static void skip_noise(struct lexer_context *lexer)
 			advance(lexer);
 			break;
 		case '/':
-			lexer->current++;
-			if (!try_ignore_comments(lexer)) {
-				lexer->current--;
+			if (lexer->current[1] == '/' || lexer->current[1] == '*') {
+				advance(lexer);
+				try_ignore_comments(lexer);
+			} else {
 				return;
-			};
+			}
 			break;
 		default:
 			return;
