@@ -7,11 +7,6 @@
 #include <stdio.h>
 #include <string.h>
 
-struct token_type_name {
-	enum token_type type;
-	const char *str;
-};
-
 static const char *token_type_names[] = {
 	[TK_EOF] = "EOF",
 	[TK_ERROR] = "ERROR",
@@ -368,22 +363,31 @@ static struct token token_number(struct lexer_context *lexer, const char *start)
 {
 	if (*start == '0' && !is_end(lexer)) {
 		if (follow_next(lexer, 'x') || follow_next(lexer, 'X')) {
+			const char *digits = lexer->current;
 			while (!is_end(lexer) && isxdigit(*lexer->current))
 				advance(lexer);
+			if (lexer->current == digits)
+				goto error_post_prefix;
 			return create_token(TK_HEX, start,
 					    (size_t)(lexer->current - start));
 		}
 		if (follow_next(lexer, 'o') || follow_next(lexer, 'O')) {
+			const char *digits = lexer->current;
 			while (!is_end(lexer) &&
 			       *lexer->current >= '0' && *lexer->current <= '7')
 				advance(lexer);
+			if (lexer->current == digits)
+				goto error_post_prefix;
 			return create_token(TK_OCTAL, start,
 					    (size_t)(lexer->current - start));
 		}
 		if (follow_next(lexer, 'b') || follow_next(lexer, 'B')) {
+			const char *digits = lexer->current;
 			while (!is_end(lexer) &&
 			       (*lexer->current == '0' || *lexer->current == '1'))
 				advance(lexer);
+			if (lexer->current == digits)
+				goto error_post_prefix;
 			return create_token(TK_BINARY, start,
 					    (size_t)(lexer->current - start));
 		}
@@ -396,12 +400,16 @@ static struct token token_number(struct lexer_context *lexer, const char *start)
 		advance(lexer);
 		while (!is_end(lexer) && isdigit(*lexer->current))
 			advance(lexer);
-		return create_token(TK_FLOATING, start,
-				    (size_t)(lexer->current - start));
+		return create_token(TK_FLOATING, start, (size_t)(lexer->current - start));
 	}
 
-	return create_token(TK_NUMBER, start,
-			    (size_t)(lexer->current - start));
+	return create_token(TK_NUMBER, start, (size_t)(lexer->current - start));
+
+error_post_prefix:
+
+	return error_token(lexer, start, (int)(lexer->current - start),
+			   lexer->line, lexer->col - 2,
+			   "expected digits after the prefix");
 }
 
 /*
