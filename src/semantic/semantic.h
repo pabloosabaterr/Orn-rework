@@ -76,20 +76,6 @@ struct symbol {
 	};
 };
 
-/*
- * NEEDSWORK: Scope lookup is linear. This means that walking to through up to
- * the global scope is O(n * m) where n is the depth of the scope and m is the
- * symbols in each scope and it can be worse if it's needed to check the object
- * members,being O(n * m * k) where k is the number of members.
- *
- * This could be improved by:
- *
- * - Symbols do not need to be ordered so they could be in a hash table instead
- *   of an array. Could be used linear and swap to hash after a certain threshold.
- *
- * - Primarily the lookups are going to search types so, a global scope hash
- *   table (where most of the objects live) might be significant improvement.
- */
 struct scope {
 	struct scope *parent;
 	struct hashmap symbols;
@@ -100,6 +86,25 @@ struct semantic_context {
 
 	struct scope *global;
 	struct scope *current;
+
+	/*
+	 * Expressions like namescpaces T::N, where T can be ommited but
+	 * it gets resolved from the declaration, example:
+	 *
+	 * enum T { N }
+	 *
+	 * let foo: T = ::N;
+	 *
+	 * when looking at ::N, it needs the context from the declaration in
+	 * order to resolve T.
+	 * To avoid having to go though all the scopes and the member of all
+	 * the symbols, it get collected here to be used when resolving the
+	 * member.
+	 *
+	 * If there is no context from the declaration, but the function
+	 * returns T, it will be resolved with the return type of the function.
+	 */
+	struct symbol *expected_sym;
 
 	struct type *t_err;
 	struct type *t_int;
