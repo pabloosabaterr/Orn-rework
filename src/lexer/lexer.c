@@ -412,18 +412,58 @@ error_post_prefix:
 			   "expected digits after the prefix");
 }
 
-/*
- * NEEDSWORK: invalid escape sequences needs to be detected and reported
- */
+static const char *check_valid_escape(struct lexer_context *lexer, char esc)
+{
+	switch (*lexer->current) {
+	case 'n':
+	case 't':
+	case 'r':
+	case '\\':
+	case '\'':
+	case '"':
+	case '0':
+		advance(lexer);
+		return NULL;
+	case 'x':
+		advance(lexer);
+		if (is_end(lexer) || !isxdigit(*lexer->current)) {
+			while (!is_end(lexer) && !is_next(lexer, esc))
+				advance(lexer);
+			advance(lexer);
+			return "expected hex digit after '\\x'";
+		}
+		advance(lexer);
+		if (!is_end(lexer) && isxdigit(*lexer->current))
+			advance(lexer);
+		return NULL;
+	default:
+		while (!is_end(lexer) && !is_next(lexer, esc))
+			advance(lexer);
+		advance(lexer);
+		return "invalid escape sequence";
+	}
+}
+
 static struct token token_stringlit(struct lexer_context *lexer, const char *start)
 {
 	int start_line = lexer->line;
 	int start_col = lexer->col - 1;
 
 	while (!is_end(lexer) && !is_next(lexer, '"')) {
-		if (is_next(lexer, '\\'))
+		/*
+		 * Ignore what's after '\' to avoid early returns e.g.:
+		 * "\"Hello\""
+		 */
+		if (is_next(lexer, '\\')) {
 			advance(lexer);
-		advance(lexer);
+			const char *err = check_valid_escape(lexer, '"');
+			if (err)
+				return error_token(lexer, start,
+						   (int)(lexer->current - start),
+						   start_line, start_col, err);
+		} else {
+			advance(lexer);
+		}
 	}
 
 	if (is_end(lexer))
@@ -435,18 +475,24 @@ static struct token token_stringlit(struct lexer_context *lexer, const char *sta
 	return create_token(TK_STRINGLIT, start, (size_t)(lexer->current - start));
 }
 
-/*
- * NEEDSWORK: invalid escape sequences needs to be detected and reported
- */
 static struct token token_charlit(struct lexer_context *lexer, const char *start)
 {
 	int start_line = lexer->line;
 	int start_col = lexer->col - 1;
 
-	if (is_next(lexer, '\\'))
-		advance(lexer);
+	if (is_next(lexer, '\''))
+		return error_token(lexer, start, 1, start_line, start_col, "empty char literal");
 
-	advance(lexer);
+	if (is_next(lexer, '\\')) {
+		advance(lexer);
+		const char *err = check_valid_escape(lexer, '\'');
+		if (err)
+			return error_token(lexer, start,
+					   (int)(lexer->current - start),
+					   start_line, start_col, err);
+	} else {
+		advance(lexer);
+	}
 
 	if (!is_next(lexer, '\''))
 		return error_token(lexer, start,

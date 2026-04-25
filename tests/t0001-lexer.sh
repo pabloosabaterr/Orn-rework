@@ -234,15 +234,6 @@ test_expect_success 'unterminated block comment reports error' '
 	test_cmp expect.err actual.err
 '
 
-test_expect_failure 'invalid escape sequence should be rejected' '
-	cat >input.orn <<-\EOF &&
-	fn foo() {
-		let s: string = "\q";
-	}
-	EOF
-	test_must_fail "$ORN" input.orn 2>/dev/null
-'
-
 test_expect_success 'undescore name is gets correctly tokenized' '
 	cat >input.orn <<-\EOF &&
 	fn _foo() {}
@@ -276,6 +267,64 @@ test_expect_success 'error after number prefix with no digits' '
 	test_cmp expect.out actual.out &&
 	test_cmp expect.err actual.err
 
+'
+
+test_expect_success 'invalid escape sequence in char literal' '
+	echo "'\''\\q'\''" >input.orn &&
+	test_must_fail "$ORN" --dump-tokens input.orn >actual.out 2>actual.err &&
+	cat >expect.out <<-\EOF &&
+	Program compiled with 1 error
+	EOF
+	cat >expect.err <<-\EOF &&
+	error: invalid escape sequence
+	 --> input.orn:1:0
+	   |
+	 1 | '\''\q'\''
+	   | ^~~~
+	EOF
+	test_cmp expect.out actual.out &&
+	test_cmp expect.err actual.err
+'
+
+test_expect_success 'hex escape without digits in char literal' '
+	echo "'\''\\x'\''" >input.orn &&
+	test_must_fail "$ORN" --dump-tokens input.orn >actual.out 2>actual.err &&
+	cat >expect.out <<-\EOF &&
+	Program compiled with 1 error
+	EOF
+	cat >expect.err <<-\EOF &&
+	error: expected hex digit after '\''\x'\''
+	 --> input.orn:1:0
+	   |
+	 1 | '\''\x'\''
+	   | ^~~~
+	EOF
+	test_cmp expect.out actual.out &&
+	test_cmp expect.err actual.err
+'
+
+test_expect_success 'undescore name is gets correctly tokenized' '
+	cat >input.orn <<-\EOF &&
+	'\''\n'\''
+	'\''\t'\''
+	'\''\t'\''
+	'\''\r'\''
+	'\''\\'\''
+	'\''\x41'\''
+	'\''\0'\''
+	EOF
+	"$ORN" --dump-tokens input.orn >actual &&
+	cat >expect <<-\EOF &&
+	'\''\n'\'' [CHAR] - 1:0
+	'\''\t'\'' [CHAR] - 2:0
+	'\''\t'\'' [CHAR] - 3:0
+	'\''\r'\'' [CHAR] - 4:0
+	'\''\\'\'' [CHAR] - 5:0
+	'\''\x41'\'' [CHAR] - 6:0
+	'\''\0'\'' [CHAR] - 7:0
+	Program compiled with 0 errors
+	EOF
+	test_cmp expect actual
 '
 
 test_done
