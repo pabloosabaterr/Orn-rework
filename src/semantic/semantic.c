@@ -6,6 +6,7 @@
 #include "parser/ast.h"
 #include "semantic/type.h"
 #include "memory/wrapper.h"
+#include <assert.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -166,6 +167,8 @@ struct type *type_tuple(struct semantic_context *sc, struct type **elems, size_t
 	size_t i;
 	struct type *t, **e;
 
+	assert(nr && "empty tuple");
+
 	for (i = 0; i < sc->nr_tuple; i++) {
 		struct type *tp = sc->tuples[i];
 		if (tp->tuple.nr == nr) {
@@ -220,8 +223,13 @@ struct type *type_fn(struct semantic_context *sc, struct type **params,
 	t->fn.nr = nr;
 	t->fn.ret = ret;
 
-	p = arena_alloc(&sc->cc->arena, sizeof(*t) * nr);
-	memcpy(p, params, sizeof(*t) * nr);
+	if (nr) {
+		p = arena_alloc(&sc->cc->arena, sizeof(*t) * nr);
+		memcpy(p, params, sizeof(*t) * nr);
+	} else {
+		p = NULL;
+	}
+
 	t->fn.params = p;
 
 	ARENA_ALLOC_GROW(&sc->cc->arena, sc->fns, sc->nr_fn + 1, sc->alloc_fn);
@@ -454,6 +462,13 @@ static struct type *resolve_type(struct semantic_context *sc, struct ast_node *n
 		struct type **elems;
 		size_t i;
 
+		if (!node->list.nr_item) {
+			diag_emit(&sc->cc->diag, ERROR,
+				  loc_from_token(sc, node->tok),
+				  "empty tuple type");
+			return sc->t_err;
+		}
+
 		elems = arena_alloc(&sc->cc->arena, sizeof(*elems) * node->list.nr_item);
 		for (i = 0; i < node->list.nr_item; i++)
 			elems[i] = resolve_type(sc, node->list.items[i]);
@@ -475,6 +490,13 @@ static void resolve_struct(struct semantic_context *sc, struct ast_node *node)
 	size_t i, nr;
 
 	nr = node->list.nr_item;
+
+	if (!nr)
+		diag_emit(&sc->cc->diag, ERROR,
+			  loc_from_token(sc, node->tok),
+			  "struct '%.*s' has no fields",
+			  (int)node->tok.len, node->tok.lex);
+
 	sym->aggregate.members = arena_alloc(&sc->cc->arena, sizeof(*sym->aggregate.members) * nr);
 	sym->aggregate.nr = nr;
 	sym->aggregate.alloc = nr;
@@ -527,6 +549,13 @@ static void resolve_enum(struct semantic_context *sc, struct ast_node *node)
 	long long next_val = 0;
 
 	nr = node->list.nr_item;
+
+	if (!nr)
+		diag_emit(&sc->cc->diag, ERROR,
+			  loc_from_token(sc, node->tok),
+			  "enum '%.s' is memberless",
+			  (int)node->tok.len, node->tok.lex);
+
 	sym->aggregate.members = arena_alloc(&sc->cc->arena, sizeof(*sym->aggregate.members) * nr);
 	sym->aggregate.nr = nr;
 	sym->aggregate.alloc = nr;
@@ -600,29 +629,30 @@ static void resolve_types(struct semantic_context *sc, struct ast_node *program)
 static void resolve_fn_sig(struct semantic_context *sc, struct ast_node *node,
 			   struct symbol *sym)
 {
-	struct type **param_types;
+	struct type **param_types = NULL;
 	size_t i, nr;
+	struct type *ret;
 
 	nr = node->fn_dec.nr_param;
-
-	sym->fn.params = arena_alloc(&sc->cc->arena, sizeof(*sym->fn.params) * nr);
 	sym->fn.nr_param = nr;
 
-	param_types = arena_alloc(&sc->cc->arena, sizeof(*sym->fn.params) * nr);
+	if (nr) {
+		sym->fn.params = arena_alloc(&sc->cc->arena, sizeof(*sym->fn.params) * nr);
+		param_types = arena_alloc(&sc->cc->arena, sizeof(*param_types) * nr);
 
-	for (i = 0; i < nr; i++) {
-		struct ast_node *p = node->fn_dec.params[i];
-		struct symbol *p_sym;
+		for (i = 0; i < nr; i++) {
+			struct ast_node *p = node->fn_dec.params[i];
+			struct symbol *p_sym;
 
-		p_sym = sym_new(sc, SYM_PARAM, p->tok, p);
-		p_sym->type = resolve_type(sc, p->typed.ann);
-		param_types[i] = p_sym->type;
-		p->rsym = p_sym;
+			p_sym = sym_new(sc, SYM_PARAM, p->tok, p);
+			p_sym->type = resolve_type(sc, p->typed.ann);
+			param_types[i] = p_sym->type;
+			p->rsym = p_sym;
 
-		sym->fn.params[i] = p_sym;
+			sym->fn.params[i] = p_sym;
+		}
 	}
 
-	struct type *ret;
 	if (node->fn_dec.ret_type)
 		ret = resolve_type(sc, node->fn_dec.ret_type);
 	else

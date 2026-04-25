@@ -1,7 +1,15 @@
 #include "memory/arena.h"
 #include "memory/wrapper.h"
+#include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef DEBUG_ARENA
+# define arena_dbg(...) (fprintf(stderr, "arena: "), fprintf(stderr, __VA_ARGS__), fprintf(stderr, "\n"))
+#else
+# define arena_dbg(...) ((void)0)
+#endif
 
 static struct arena_chunk *arena_chunk_new(size_t size)
 {
@@ -37,6 +45,9 @@ void *arena_alloc(struct arena *arena, size_t size)
 	size_t aligned_offset = align_up(arena->offset, sizeof(void *));
 	size_t chunk_size = arena->next_buffer_size;
 
+	assert(size && "requested 0 bytes");
+	arena_dbg("allocated: %zu bytes", size);
+
 	if (aligned_offset + size <= arena->head->size) {
 		ptr = arena->head->ptr + aligned_offset;
 		arena->offset = aligned_offset + size;
@@ -58,6 +69,8 @@ void *arena_alloc(struct arena *arena, size_t size)
 void *arena_realloc(struct arena *arena, void *ptr, size_t old_size, size_t new_size)
 {
 	void *new_ptr;
+
+	arena_dbg("realloc'ing");
 
 	/*
 	 * If the pointer is the last allocated, try to allocate the new size

@@ -5,7 +5,7 @@ NAME = orn
 SRC = $(wildcard src/**/*.c) $(wildcard src/*.c)
 
 all:
-	mkdir -p build/ && $(CC) $(CFLAGS) $(SRC) -o build/$(NAME)
+	mkdir -p build/ && $(CC) $(CFLAGS) $(DFLAGS) $(SRC) -o build/$(NAME)
 
 run: all
 	./build/$(NAME) $(ARGS)

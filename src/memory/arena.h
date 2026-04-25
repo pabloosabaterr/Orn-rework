@@ -36,6 +36,11 @@ struct arena {
 /* arena functions */
 
 void arena_init(struct arena *arena, size_t init);
+/*
+ * Allocates 'size' bytes from the arena and returns a pointer to the allocated
+ * memory.
+ * size must be > 0.
+ */
 void *arena_alloc(struct arena *arena, size_t size);
 void *arena_realloc(struct arena *arena, void *ptr, size_t old_size, size_t new_size);
 void arena_reset(struct arena *arena);
