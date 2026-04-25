@@ -3,6 +3,7 @@
 #include "lexer/lexer.h"
 #include "memory/arena.h"
 #include "compiler.h"
+#include "memory/hashmap.h"
 #include "parser/ast.h"
 #include "semantic/type.h"
 #include "memory/wrapper.h"
@@ -19,9 +20,24 @@ enum {
 	RESOLVED
 };
 
+struct symbol_entry {
+	struct hashmap_entry entry;
+	struct symbol *sym;
+};
+
 static struct type *resolve_type(struct semantic_context *sc, struct ast_node *node);
 static struct type *check_expr(struct semantic_context *sc, struct ast_node *node);
 static void check_stmt(struct semantic_context *sc, struct ast_node *node);
+
+static int symbol_cmp(const struct hashmap_entry *entry, const void *key)
+{
+	const struct symbol_entry *se = (const struct symbol_entry *)entry;
+	const struct token *tok = key;
+
+	if (se->sym->tok.len != tok->len)
+		return 1;
+	return memcmp(se->sym->tok.lex, tok->lex, tok->len);
+}
 
 static const char *type_name(struct type *t)
 {
@@ -77,6 +93,7 @@ static struct scope *scope_new(struct semantic_context *sc, struct scope *parent
 	struct scope *s = arena_alloc(&sc->cc->arena, sizeof(*s));
 	memset(s, 0, sizeof(*s));
 	s->parent = parent;
+	hashmap_init(&s->symbols);
 	return s;
 }
 
@@ -88,6 +105,7 @@ static void scope_push(struct semantic_context *sc)
 
 static void scope_pop(struct semantic_context *sc)
 {
+	hashmap_free(&sc->current->symbols);
 	sc->current = sc->current->parent;
 }
 
@@ -239,28 +257,29 @@ struct type *type_fn(struct semantic_context *sc, struct type **params,
 
 static struct symbol *scope_lookup(struct scope *sc, const char *id, size_t len)
 {
+	unsigned int h = strhash(id, len);
+	struct token key = { .lex = id, .len = len };
 	struct scope *s;
 
 	for (s = sc; s; s = s->parent) {
-		size_t i;
-		for (i = 0; i < s->nr; i++) {
-			struct symbol *sym = s->symbols[i];
-			if (sym->tok.len == len && !memcmp(sym->tok.lex, id, len))
-				return sym;
-		}
+		struct hashmap_entry *ent;
+
+		ent = hashmap_get(&s->symbols, h, symbol_cmp, &key);
+		if (ent)
+			return ((struct symbol_entry *)ent)->sym;
 	}
+
 	return NULL;
 }
 
 static struct symbol *scope_lookup_local(struct scope *sc, const char *id, size_t len)
 {
-	size_t i;
+	unsigned int h = strhash(id, len);
+	struct token key = { .lex = id, .len = len };
+	struct hashmap_entry *entry = hashmap_get(&sc->symbols, h, symbol_cmp, &key);
 
-	for (i = 0; i < sc->nr; i++) {
-		struct symbol *sym = sc->symbols[i];
-		if (sym->tok.len == len && !memcmp(sym->tok.lex, id, len))
-			return sym;
-	}
+	if (entry)
+		return ((struct symbol_entry *)entry)->sym;
 	return NULL;
 }
 
@@ -290,6 +309,8 @@ static struct source_location loc_from_token(struct semantic_context *sc,
 static int scope_insert(struct semantic_context *sc, struct scope *s,
 			struct symbol *sym)
 {
+	struct symbol_entry *se;
+
 	if (scope_lookup_local(s, sym->tok.lex, sym->tok.len)) {
 		diag_emit(&sc->cc->diag, ERROR, loc_from_token(sc, sym->tok),
 			  "'%.*s' has been already declared",
@@ -297,8 +318,10 @@ static int scope_insert(struct semantic_context *sc, struct scope *s,
 		return 0;
 	}
 
-	ARENA_ALLOC_GROW(&sc->cc->arena, s->symbols, s->nr + 1, s->alloc);
-	s->symbols[s->nr++] = sym;
+	se = arena_alloc(&sc->cc->arena, sizeof(*se));
+	se->entry.hash = strhash(sym->tok.lex, sym->tok.len);
+	se->sym = sym;
+	hashmap_put(&s->symbols, &se->entry);
 	return 1;
 }
 
@@ -1307,50 +1330,11 @@ static struct type *check_namespace(struct semantic_context *sc, struct ast_node
 	 * node->tok the token information is at Red
 	 */
 	if (!node->namespace.left) {
-		struct scope *s;
-		struct symbol *found = NULL;
-		struct symbol *found_parent = NULL;
-		int count = 0;
-
-		/* NEEDSWORK: O(n3)... */
-		for (s = sc->current; s; s = s->parent) {
-			size_t j;
-			for (j = 0; j < s->nr; j++) {
-				struct symbol *sym = s->symbols[j];
-				size_t k;
-				if (sym->kind != SYM_ENUM)
-					continue;
-				for (k = 0; k < sym->aggregate.nr; k++) {
-					struct symbol *m = sym->aggregate.members[k];
-					if (m->kind != SYM_ENUM_MEMBER)
-						continue;
-					if (m->tok.len == node->tok.len &&
-					    !memcmp(m->tok.lex, node->tok.lex,
-						    m->tok.len)) {
-						found = m;
-						found_parent = sym;
-						count++;
-					}
-				}
-			}
-		}
-		if (count == 0) {
-			diag_emit(&sc->cc->diag, ERROR,
-				  loc_from_token(sc, node->tok),
-				  "unknown enum member '%.*s'",
-				  (int)node->tok.len, node->tok.lex);
-			return sc->t_err;
-		}
-		if (count > 1) {
-			diag_emit(&sc->cc->diag, ERROR,
-				  loc_from_token(sc, node->tok),
-				  "ambiguous '::': '%.*s' exists in multiple enums",
-				  (int)node->tok.len, node->tok.lex);
-			return sc->t_err;
-		}
-
-		node->rsym = found;
-		return found_parent->type;
+		diag_emit(&sc->cc->diag, ERROR,
+			  loc_from_token(sc, node->tok),
+			  "'::%.*s' without explicit type is not yet supported",
+			  (int)node->tok.len, node->tok.lex);
+		return sc->t_err;
 	}
 
 	target = scope_lookup(sc->current, node->namespace.left->tok.lex,
@@ -1931,4 +1915,10 @@ void semantic_analyze(struct semantic_context *sc, struct ast_node *program)
 		return;
 
 	check_bodies(sc, program);
+
+	/*
+	 * symbols live in the arena and their address is at node->rsym
+	 * hashtable bucket arrays are no longer needed.
+	 */
+	hashmap_free(&sc->global->symbols);
 }
