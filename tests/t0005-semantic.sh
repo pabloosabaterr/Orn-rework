@@ -981,12 +981,12 @@ test_expect_success 'variable not visible outside block' '
 	test_cmp expect.err err
 '
 
-test_expect_failure '::Red resolves with type hint when ambiguous' '
+test_expect_success '::Red resolves with type hint when ambiguous' '
 	cat >input.orn <<-\EOF &&
 	enum Color { Red, Green, Blue }
 	enum Priority { Red, Yellow, Green }
 	fn foo() {
-	let c: Color = ::Red;
+		let c: Color = ::Red;
 	}
 	EOF
 	"$ORN" input.orn >actual 2>/dev/null &&
@@ -1037,6 +1037,71 @@ test_expect_failure 'match exhaustiveness on enum without wildcard' '
 	}
 	EOF
 	test_must_fail "$ORN" input.orn 2>/dev/null
+'
+
+test_expect_success '::Member inferred from context' '
+	cat >input.orn <<-\EOF &&
+	enum Color { Red, Green, Blue }
+	const C: Color = ::Red;
+	fn foo() -> Color {
+		let c: Color = ::Red;
+		c = ::Blue;
+		match (c) {
+			::Red => {}
+			::Green => {}
+			_ => {}
+		}
+		ret ::Green;
+	}
+	EOF
+	"$ORN" input.orn >actual 2>/dev/null &&
+	cat >expect <<-\EOF &&
+	Program compiled with 0 errors
+	EOF
+	test_cmp expect actual
+'
+
+test_expect_success '::Member fails without context' '
+	cat >input.orn <<-\EOF &&
+	enum Color { Red, Green, Blue }
+	fn foo() {
+		let c = ::Red;
+	}
+	EOF
+	test_must_fail "$ORN" input.orn >actual 2>err &&
+	cat >expect <<-\EOF &&
+	Program compiled with 1 error
+	EOF
+	cat >expect.err <<-\EOF &&
+	error: cannot infer type for '\''::Red'\''
+	 --> input.orn:3:10
+	   |
+	 3 | let c = ::Red;
+	   |           ^~~
+	EOF
+	test_cmp expect actual &&
+	test_cmp expect.err err
+'
+
+test_expect_success '::Member fails with non-enum type' '
+	cat >input.orn <<-\EOF &&
+	fn foo() {
+		let c: int = ::Red;
+	}
+	EOF
+	test_must_fail "$ORN" input.orn >actual 2>err &&
+	cat >expect <<-\EOF &&
+	Program compiled with 1 error
+	EOF
+	cat >expect.err <<-\EOF &&
+	error: cannot infer type for '\''::Red'\''
+	 --> input.orn:2:15
+	   |
+	 2 | let c: int = ::Red;
+	   |                ^~~
+	EOF
+	test_cmp expect actual &&
+	test_cmp expect.err err
 '
 
 test_done

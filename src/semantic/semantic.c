@@ -9,6 +9,7 @@
 #include "memory/wrapper.h"
 #include <assert.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 
 /*
@@ -1147,7 +1148,10 @@ static struct type *check_call(struct semantic_context *sc, struct ast_node *nod
 static struct type *check_assign(struct semantic_context *sc, struct ast_node *node)
 {
 	struct type *target = check_expr(sc, node->assign.target);
+	if (target->kind == TY_STRUCT || target->kind == TY_ENUM)
+		sc->expected_sym = target->named.dec;
 	struct type *val = check_expr(sc, node->assign.val);
+	sc->expected_sym = NULL;
 
 	if (target == sc->t_err || val == sc->t_err)
 		return sc->t_err;
@@ -1295,29 +1299,6 @@ static struct type *check_member(struct semantic_context *sc, struct ast_node *n
 	return sc->t_err;
 }
 
-/*
- * NEEDSWORK: Now with a syntax like:
- *
- * let c: Color = ::Red;
- *
- * Red its being searched thorugh all the scopes for an obj that matches that
- * same member when it should look the type : Color before instead of blindly
- * searching through all scopes, symbols and obj members.
- *
- * With the current approach there is this limitation where even if the type
- * is set, if two enums happen to have same member name, there is no way of
- * knowing which one the user has set to be. The temporal solution is to write
- * the full namespace Color::Red instead of the abreviation.
- *
- * Two possible solutions thought are:
- *
- * - When a declaration expects an enum member, propagate the enum symbol down
- *   up to this function which will use it instead of searching. O(1) ?
- *
- * - Same but instead of propagating at the context have somehting like
- *   'expected type' which is set at declarations that expects enums members to
- *   later be used here. O(1) ?
- */
 static struct type *check_namespace(struct semantic_context *sc, struct ast_node *node)
 {
 	struct symbol *target;
@@ -1330,15 +1311,20 @@ static struct type *check_namespace(struct semantic_context *sc, struct ast_node
 	 * node->tok the token information is at Red
 	 */
 	if (!node->namespace.left) {
-		diag_emit(&sc->cc->diag, ERROR,
-			  loc_from_token(sc, node->tok),
-			  "'::%.*s' without explicit type is not yet supported",
-			  (int)node->tok.len, node->tok.lex);
-		return sc->t_err;
+		if (!sc->expected_sym ||
+		    (sc->expected_sym->kind != SYM_ENUM &&
+		     sc->expected_sym->kind != SYM_STRUCT)) {
+			diag_emit(&sc->cc->diag, ERROR,
+				  loc_from_token(sc, node->tok),
+				  "cannot infer type for '::%.*s'",
+				  (int)node->tok.len, node->tok.lex);
+			return sc->t_err;
+		}
+		target = sc->expected_sym;
+	} else {
+		target = scope_lookup(sc->current, node->namespace.left->tok.lex,
+				      node->namespace.left->tok.len);
 	}
-
-	target = scope_lookup(sc->current, node->namespace.left->tok.lex,
-			      node->namespace.left->tok.len);
 
 	if (!target) {
 		diag_emit(&sc->cc->diag, ERROR,
@@ -1522,7 +1508,10 @@ static void check_return(struct semantic_context *sc, struct ast_node *node)
 	struct type *expected = sc->current_fn->type->fn.ret;
 
 	if (node->return_stmt.expr) {
+		if (expected->kind == TY_ENUM || expected->kind == TY_STRUCT)
+			sc->expected_sym = expected->named.dec;
 		ret = check_expr(sc, node->return_stmt.expr);
+		sc->expected_sym = NULL;
 		if (ret != sc->t_err && ret != expected)
 			diag_emit(&sc->cc->diag, ERROR, loc_from_token(sc, node->tok),
 				  "return type mismatch: expected '%s' "
@@ -1558,10 +1547,14 @@ static void check_let(struct semantic_context *sc, struct ast_node *node)
 	struct type *ann = NULL;
 	struct type *init = NULL;
 
-	if (node->let_dec.ann)
+	if (node->let_dec.ann) {
 		ann = resolve_type(sc, node->let_dec.ann);
+		if (ann != sc->t_err && (ann->kind == TY_ENUM || ann->kind == TY_STRUCT))
+			sc->expected_sym = ann->named.dec;
+	}
 	if (node->let_dec.init)
 		init = check_expr(sc, node->let_dec.init);
+	sc->expected_sym = NULL;
 
 	if (node->let_dec.nr_name == 1) {
 		struct symbol *sym;
@@ -1697,6 +1690,9 @@ static void check_match(struct semantic_context *sc, struct ast_node *node)
 	struct type *subj = check_expr(sc, node->match.subj);
 	size_t i;
 
+	if (subj->kind == TY_ENUM || subj->kind == TY_STRUCT)
+		sc->expected_sym = subj->named.dec;
+
 	for (i = 0; i < node->match.nr_arm; i++) {
 		struct ast_node *arm = node->match.arms[i];
 		struct ast_node *pattern = arm->match_arm.pattern;
@@ -1714,6 +1710,7 @@ static void check_match(struct semantic_context *sc, struct ast_node *node)
 
 		check_stmt(sc, arm->match_arm.body);
 	}
+	sc->expected_sym = NULL;
 }
 
 static void check_incdec(struct semantic_context *sc, struct ast_node *node)
@@ -1746,7 +1743,10 @@ static void check_incdec(struct semantic_context *sc, struct ast_node *node)
 static void check_const(struct semantic_context *sc, struct ast_node *node)
 {
 	struct type *ann = resolve_type(sc, node->const_dec.ann);
+	if (ann->kind == TY_ENUM || ann->kind == TY_STRUCT)
+		sc->expected_sym = ann->named.dec;
 	struct type *init = check_expr(sc, node->const_dec.init);
+	sc->expected_sym = NULL;
 
 	if (ann != sc->t_err && init != sc->t_err && ann != init)
 		diag_emit(&sc->cc->diag, ERROR, loc_from_token(sc, node->tok),
