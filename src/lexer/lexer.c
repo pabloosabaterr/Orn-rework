@@ -166,6 +166,7 @@ static inline int is_next(struct lexer_context *lexer, char c)
 {
 	return *lexer->current == c;
 }
+
 #define is_end(lexer) (is_next(lexer, '\0'))
 #define create_token(type, start, len) \
 	((struct token){ type, start, len, lexer->line, lexer->col - (int)(len) })
@@ -255,17 +256,120 @@ static void skip_noise(struct lexer_context *lexer)
 
 static struct token token_id(struct lexer_context *lexer, const char *start)
 {
-	size_t i, len;
+	size_t len;
 
 	while (!is_end(lexer) && (isalnum(*lexer->current) || is_next(lexer, '_')))
 		advance(lexer);
 
 	len = lexer->current - start;
 
-	for (i = 0; i < ARRAY_SIZE(keyword_table); i++)
-		if (strlen(keyword_table[i].str) == len &&
-		    !memcmp(start, keyword_table[i].str, len))
-			return create_token(keyword_table[i].type, start, len);
+	/*
+	 * Keywords are known at compile time and are fixed.
+	 * Dispatch on first character, filter by length, memcmp the rest.
+	 *
+	 * If someday the number of keywords gets increased, cases should
+	 * have anothere switch dispatching on len.
+	 */
+	switch (start[0]) {
+	case 'a':
+		if (len == 2 && !memcmp(start, "as", 2))
+			return create_token(TK_AS, start, len);
+		break;
+	case 'b':
+		if (len == 4 && !memcmp(start, "bool", 4))
+			return create_token(TK_BOOL, start, len);
+		if (len == 5 && !memcmp(start, "break", 5))
+			return create_token(TK_BREAK, start, len);
+		break;
+	case 'c':
+		if (len == 4 && !memcmp(start, "char", 4))
+			return create_token(TK_CHAR, start, len);
+		if (len == 5 && !memcmp(start, "const", 5))
+			return create_token(TK_CONST, start, len);
+		if (len == 8 && !memcmp(start, "continue", 8))
+			return create_token(TK_CONTINUE, start, len);
+		break;
+	case 'd':
+		if (len == 5 && !memcmp(start, "defer", 5))
+			return create_token(TK_DEFER, start, len);
+		if (len == 6 && !memcmp(start, "double", 6))
+			return create_token(TK_DOUBLE, start, len);
+		break;
+	case 'e':
+		if (len == 4 && !memcmp(start, "elif", 4))
+			return create_token(TK_ELIF, start, len);
+		if (len == 4 && !memcmp(start, "else", 4))
+			return create_token(TK_ELSE, start, len);
+		if (len == 4 && !memcmp(start, "enum", 4))
+			return create_token(TK_ENUM, start, len);
+		break;
+	case 'f':
+		if (len == 2 && !memcmp(start, "fn", 2))
+			return create_token(TK_FN, start, len);
+		if (len == 3 && !memcmp(start, "for", 3))
+			return create_token(TK_FOR, start, len);
+		if (len == 5 && !memcmp(start, "false", 5))
+			return create_token(TK_FALSE, start, len);
+		if (len == 5 && !memcmp(start, "float", 5))
+			return create_token(TK_FLOAT, start, len);
+		break;
+	case 'i':
+		if (len == 2 && !memcmp(start, "if", 2))
+			return create_token(TK_IF, start, len);
+		if (len == 2 && !memcmp(start, "in", 2))
+			return create_token(TK_IN, start, len);
+		if (len == 3 && !memcmp(start, "int", 3))
+			return create_token(TK_INT, start, len);
+		if (len == 4 && !memcmp(start, "impl", 4))
+			return create_token(TK_IMPL, start, len);
+		if (len == 6 && !memcmp(start, "import", 6))
+			return create_token(TK_IMPORT, start, len);
+		break;
+	case 'l':
+		if (len == 3 && !memcmp(start, "let", 3))
+			return create_token(TK_LET, start, len);
+		break;
+	case 'm':
+		if (len == 5 && !memcmp(start, "match", 5))
+			return create_token(TK_MATCH, start, len);
+		break;
+	case 'n':
+		if (len == 4 && !memcmp(start, "null", 4))
+			return create_token(TK_NULL, start, len);
+		break;
+	case 'r':
+		if (len == 3 && !memcmp(start, "ret", 3))
+			return create_token(TK_RETURN, start, len);
+		break;
+	case 's':
+		if (len == 6 && !memcmp(start, "sizeof", 6))
+			return create_token(TK_SIZE_OF, start, len);
+		if (len == 6 && !memcmp(start, "string", 6))
+			return create_token(TK_STRING, start, len);
+		if (len == 6 && !memcmp(start, "struct", 6))
+			return create_token(TK_STRUCT, start, len);
+		if (len == 7 && !memcmp(start, "syscall", 7))
+			return create_token(TK_SYSCALL, start, len);
+		break;
+	case 't':
+		if (len == 4 && !memcmp(start, "true", 4))
+			return create_token(TK_TRUE, start, len);
+		if (len == 4 && !memcmp(start, "type", 4))
+			return create_token(TK_TYPE, start, len);
+		break;
+	case 'u':
+		if (len == 8 && !memcmp(start, "unsigned", 8))
+			return create_token(TK_UINT, start, len);
+		break;
+	case 'v':
+		if (len == 4 && !memcmp(start, "void", 4))
+			return create_token(TK_VOID, start, len);
+		break;
+	case 'w':
+		if (len == 5 && !memcmp(start, "while", 5))
+			return create_token(TK_LOOP, start, len);
+		break;
+	}
 
 	return create_token(TK_ID, start, len);
 }
