@@ -605,6 +605,75 @@ static struct ir_operand *ir_emit_binop(struct ir_context *ic, enum ir_op op,
 	return inst->res;
 }
 
+static struct ir_operand *ir_emit_alloc(struct ir_context *ic, struct ir_type *type)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = IR_ALLOC;
+	inst->parent = ic->current_block;
+
+	inst->res = arena_alloc(&ic->cc->arena, sizeof(*inst->res));
+	inst->res->sid = ic->next_id++;
+	inst->res->type = type;
+	inst->res->def = inst;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+
+	return inst->res;
+}
+
+static struct ir_operand *ir_emit_load(struct ir_context *ic,
+				       struct ir_operand *operand)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = IR_LOAD;
+	inst->parent = ic->current_block;
+
+	inst->res = arena_alloc(&ic->cc->arena, sizeof(*inst->res));
+	inst->res->sid = ic->next_id++;
+	inst->res->type = operand->type;
+	inst->res->def = inst;
+
+	inst->operands = arena_alloc(&ic->cc->arena, sizeof(*inst->operands));
+	inst->operands[0] = operand;
+	inst->nr_operand = 1;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+
+	return inst->res;
+}
+
+static void ir_emit_store(struct ir_context *ic, struct ir_operand *ptr,
+			  struct ir_operand *val)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = IR_STORE;
+	inst->parent = ic->current_block;
+	inst->res = NULL;
+
+	inst->operands = arena_alloc(&ic->cc->arena,
+				     sizeof(*inst->operands) * 2);
+	inst->operands[0] = ptr;
+	inst->operands[1] = val;
+	inst->nr_operand = 2;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+}
+
 static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *node)
 {
 	switch (node->type) {
@@ -649,6 +718,11 @@ static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *nod
 			die("unhandled unary op in IR lowering: %d", node->unary.type);
 		}
 	}
+	case NODE_ID: {
+		struct ir_operand *slot = node->rsym->ir_slot;
+		assert(slot && "id symbol should carry its slot");
+		return ir_emit_load(ic, slot);
+	}
 	default:
 		die("unhandled expr in IR lowering: %d", node->type);
 	}
@@ -675,6 +749,24 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 static void lower_dec(struct ir_context *ic, struct ast_node *node)
 {
 	switch (node->type) {
+	case NODE_CONST_DEC:
+	case NODE_LET_DEC: {
+		struct ir_type *type = ir_sem_type_lowering(ic, node->rsym->type);
+		struct ir_operand *slot = ir_emit_alloc(ic, type);
+		struct ir_operand *operand;
+
+		node->rsym->ir_slot = slot;
+
+		if (node->rsym->kind == SYM_VAR && node->let_dec.init) {
+			operand = lower_expr(ic, node->let_dec.init);
+			ir_emit_store(ic, slot, operand);
+		} else if (node->rsym->kind == SYM_CONST && node->const_dec.init) {
+			operand = lower_expr(ic, node->const_dec.init);
+			ir_emit_store(ic, slot, operand);
+		}
+
+		break;
+	}
 	default:
 		lower_stmt(ic, node);
 		break;
