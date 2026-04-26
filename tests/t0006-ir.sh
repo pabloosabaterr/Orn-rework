@@ -80,4 +80,27 @@ test_expect_success 'unary operation' '
 	test_cmp expect actual
 '
 
+test_expect_success 'let declaration, store and load' '
+	cat >input.orn <<-\EOF &&
+	fn foo() -> int {
+		let x: int = 2;
+		ret x;
+	}
+	EOF
+	cat >expect <<-\EOF &&
+	fn foo() -> i32 {
+	entry:
+	    %0 = alloc i32
+	    %1 = const i32 2
+	    store i32 %1, %0
+	    %2 = load i32 %0
+	    ret i32 %2
+	}
+
+	Program compiled with 0 errors
+	EOF
+	"$ORN" --dump-ir input.orn >actual &&
+	test_cmp expect actual
+'
+
 test_done
