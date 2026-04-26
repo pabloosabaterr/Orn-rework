@@ -55,14 +55,27 @@ struct symbol {
 			size_t alloc_locals;
 		} fn;
 		/*
-		 * NEEDSWORK: members are linearly searched which can be slow
-		 * if there are enough of them to be. This could use a hash
-		 * table after a threshold.
+		 * members keeps declaration order for codegen layout
+		 * and iteration. member_hashmap provides O(1) lookup
+		 * by name for field resolution and duplicate checks.
 		 */
 		struct {
+			/*
+			 * On searchs:
+			 * nr works to quickly check if two objs are the
+			 * same, only if the nr of members if the same, the
+			 * members are compared.
+			 *
+			 * Same for initializers by comparing if the nr is
+			 * the same, then checking if the members are the same.
+			 *
+			 * A linear array is still needed to keep the order of
+			 * the members.
+			 */
 			struct symbol **members;
-			size_t nr;
 			size_t alloc;
+			size_t nr;
+			struct hashmap member_hashmap;
 		} aggregate;
 		struct {
 			long long val;
