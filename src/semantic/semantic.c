@@ -525,22 +525,20 @@ static void resolve_struct(struct semantic_context *sc, struct ast_node *node)
 	sym->aggregate.nr = nr;
 	sym->aggregate.alloc = nr;
 
-	for (i = 0; i < nr; i++) {
-		size_t j;
+	hashmap_init(&sym->aggregate.member_hashmap);
 
+	for (i = 0; i < nr; i++) {
+		unsigned h;
+		struct symbol_entry *se;
 		field_node = node->list.items[i];
-		for (j = 0; j < i; j++) {
-			struct symbol *prev = sym->aggregate.members[j];
-			if (prev->tok.len == field_node->tok.len &&
-			    !memcmp(prev->tok.lex, field_node->tok.lex, prev->tok.len)) {
-				diag_emit(&sc->cc->diag, ERROR,
-					  loc_from_token(sc, field_node->tok),
-					  "duplicated field '%.*s'",
-					  (int)field_node->tok.len,
-					  field_node->tok.lex);
-				break;
-			}
-		}
+		h = strhash(field_node->tok.lex, field_node->tok.len);
+
+		if (hashmap_get(&sym->aggregate.member_hashmap, h, symbol_cmp, &field_node->tok))
+			diag_emit(&sc->cc->diag, ERROR,
+				  loc_from_token(sc, field_node->tok),
+				  "duplicated field '%.*s'",
+				  (int)field_node->tok.len,
+				  field_node->tok.lex);
 
 		field_sym = sym_new(sc, SYM_STRUCT_FIELD, field_node->tok, field_node);
 		field_sym->type = resolve_type(sc, field_node->typed.ann);
@@ -549,6 +547,11 @@ static void resolve_struct(struct semantic_context *sc, struct ast_node *node)
 
 		sym->aggregate.members[i] = field_sym;
 		field_node->rsym = field_sym;
+
+		se = arena_alloc(&sc->cc->arena, sizeof(*se));
+		se->entry.hash = h;
+		se->sym = field_sym;
+		hashmap_put(&sym->aggregate.member_hashmap, &se->entry);
 	}
 
 	t = arena_alloc(&sc->cc->arena, sizeof(*t));
@@ -584,10 +587,21 @@ static void resolve_enum(struct semantic_context *sc, struct ast_node *node)
 	sym->aggregate.nr = nr;
 	sym->aggregate.alloc = nr;
 
+	hashmap_init(&sym->aggregate.member_hashmap);
+
 	for (i = 0; i < nr; i++) {
+		unsigned int h;
+		struct symbol_entry *se;
 		member_node = node->list.items[i];
 		member_symbol = sym_new(sc, SYM_ENUM_MEMBER, member_node->tok, member_node);
 		member_symbol->enum_member.parent = sym;
+		h = strhash(member_node->tok.lex, member_node->tok.len);
+
+		if (hashmap_get(&sym->aggregate.member_hashmap, h, symbol_cmp, &member_node->tok))
+			diag_emit(&sc->cc->diag, ERROR,
+				  loc_from_token(sc, member_node->tok),
+				  "duplicated member at enum %.s",
+				  member_node->tok.len, member_node->tok.lex);
 
 		if (member_node->enum_member.val) {
 			struct ast_node *val = member_node->enum_member.val;
@@ -617,6 +631,11 @@ static void resolve_enum(struct semantic_context *sc, struct ast_node *node)
 		member_symbol->type = NULL;
 		sym->aggregate.members[i] = member_symbol;
 		member_node->rsym = member_symbol;
+
+		se = arena_alloc(&sc->cc->arena, sizeof(*se));
+		se->entry.hash = h;
+		se->sym = member_symbol;
+		hashmap_put(&sym->aggregate.member_hashmap, &se->entry);
 	}
 
 	t = arena_alloc(&sc->cc->arena, sizeof(*t));
@@ -710,31 +729,31 @@ static void resolve_impl(struct semantic_context *sc, struct ast_node *node)
 	for (i = 0; i < node->list.nr_item; i++) {
 		struct ast_node *fn_node = node->list.items[i];
 		struct symbol *fn_sym;
-		size_t j;
-
-		for (j = 0; j < target->aggregate.nr; j++) {
-			struct symbol *prev = target->aggregate.members[j];
-			if (prev->tok.len == fn_node->tok.len &&
-			    !memcmp(prev->tok.lex, fn_node->tok.lex,
-				    prev->tok.len)) {
-				diag_emit(&sc->cc->diag, ERROR,
-					  loc_from_token(sc, fn_node->tok),
-					  "duplicate method '%.*s' in '%.*s'",
-					  (int)fn_node->tok.len,
-					  fn_node->tok.lex,
-					  (int)node->tok.len,
-					  node->tok.lex);
-				break;
-			}
-		}
+		unsigned int h = strhash(fn_node->tok.lex, fn_node->tok.len);
+		struct symbol_entry *se;
 
 		fn_sym = sym_new(sc, SYM_FN, fn_node->tok, fn_node);
+
+		if (hashmap_get(&target->aggregate.member_hashmap, h, symbol_cmp, &fn_node->tok))
+			diag_emit(&sc->cc->diag, ERROR,
+				  loc_from_token(sc, fn_node->tok),
+				  "duplicate method '%.*s' in '%.*s'",
+				  (int)fn_node->tok.len,
+				  fn_node->tok.lex,
+				  (int)node->tok.len,
+				  node->tok.lex);
+
 		resolve_fn_sig(sc, fn_node, fn_sym);
 		fn_node->rsym = fn_sym;
 
 		ARENA_ALLOC_GROW(&sc->cc->arena, target->aggregate.members,
 				 target->aggregate.nr + 1, target->aggregate.alloc);
 		target->aggregate.members[target->aggregate.nr++] = fn_sym;
+
+		se = arena_alloc(&sc->cc->arena, sizeof(*se));
+		se->entry.hash = h;
+		se->sym = fn_sym;
+		hashmap_put(&target->aggregate.member_hashmap, &se->entry);
 	}
 }
 
@@ -1257,7 +1276,8 @@ static struct type *check_member(struct semantic_context *sc, struct ast_node *n
 	struct type *left = check_expr(sc, node->member.left);
 	struct type *resolved;
 	struct symbol *sym;
-	size_t i;
+	unsigned int h;
+	struct hashmap_entry *entry;
 
 	if (left == sc->t_err)
 		return sc->t_err;
@@ -1282,13 +1302,13 @@ static struct type *check_member(struct semantic_context *sc, struct ast_node *n
 	}
 
 	sym = resolved->named.dec;
-	for (i = 0; i < sym->aggregate.nr; i++) {
-		struct symbol *f = sym->aggregate.members[i];
-		if (f->kind == SYM_STRUCT_FIELD && f->tok.len == node->tok.len &&
-		    !memcmp(f->tok.lex, node->tok.lex, f->tok.len)) {
-			node->rsym = f;
-			return f->type;
-		}
+
+	h = strhash(node->tok.lex, node->tok.len);
+	entry = hashmap_get(&sym->aggregate.member_hashmap,
+			    h, symbol_cmp, &node->tok);
+	if (entry) {
+		node->rsym = ((struct symbol_entry *)entry)->sym;
+		return node->rsym->type;
 	}
 
 	diag_emit(&sc->cc->diag, ERROR,
@@ -1303,7 +1323,8 @@ static struct type *check_namespace(struct semantic_context *sc, struct ast_node
 {
 	struct symbol *target;
 	struct symbol *member;
-	size_t i;
+	unsigned int h = strhash(node->tok.lex, node->tok.len);
+	struct hashmap_entry *entry;
 
 	/*
 	 * Color::Red
@@ -1343,18 +1364,15 @@ static struct type *check_namespace(struct semantic_context *sc, struct ast_node
 		return sc->t_err;
 	}
 
-	for (i = 0; i < target->aggregate.nr; i++) {
-		member = target->aggregate.members[i];
-		if (member->tok.len == node->tok.len &&
-		    !memcmp(member->tok.lex, node->tok.lex,
-			    member->tok.len)) {
-			node->rsym = member;
-			if (member->kind == SYM_ENUM_MEMBER)
-				return target->type;
-			if (member->kind == SYM_FN)
-				return member->type;
+	entry = hashmap_get(&target->aggregate.member_hashmap, h, symbol_cmp, &node->tok);
+	if (entry) {
+		member = ((struct symbol_entry *)entry)->sym;
+		node->rsym = member;
+		if (member->kind == SYM_ENUM_MEMBER)
+			return target->type;
+		if (member->kind == SYM_FN)
 			return member->type;
-		}
+		return member->type;
 	}
 
 	diag_emit(&sc->cc->diag, ERROR, loc_from_token(sc, node->tok),
@@ -1368,6 +1386,8 @@ static struct type *check_struct_init(struct semantic_context *sc, struct ast_no
 {
 	struct symbol *sym;
 	size_t i;
+	struct hashmap init_fields;
+	struct symbol_entry *se;
 
 	sym = scope_lookup(sc->current, node->tok.lex, node->tok.len);
 	if (!sym || sym->kind != SYM_STRUCT) {
@@ -1378,34 +1398,28 @@ static struct type *check_struct_init(struct semantic_context *sc, struct ast_no
 	}
 
 	node->rsym = sym;
+	/*
+	 * Create a temp hash table for the initializer to make checks O(1)
+	 */
+	hashmap_init(&init_fields);
 
 	for (i = 0; i < node->list.nr_item; i++) {
 		struct ast_node *fi = node->list.items[i];
 		struct symbol *field = NULL;
 		struct type *val_type;
-		size_t j;
+		unsigned int h = strhash(fi->tok.lex, fi->tok.len);
+		struct hashmap_entry *entry;
 
-		for (j = 0; j < i; j++) {
-			struct ast_node *prev = node->list.items[j];
-			if (prev->tok.len == fi->tok.len &&
-			    !memcmp(prev->tok.lex, fi->tok.lex, prev->tok.len)) {
-				diag_emit(&sc->cc->diag, ERROR,
-					  loc_from_token(sc, fi->tok),
-					  "duplicate field '%.*s' in initializer",
-					  (int)fi->tok.len, fi->tok.lex);
-				break;
-			}
-		}
+		if (hashmap_get(&init_fields, h, symbol_cmp, &fi->tok))
+			diag_emit(&sc->cc->diag, ERROR,
+				  loc_from_token(sc, fi->tok),
+				  "duplicate field '%.*s' in initializer",
+				  (int)fi->tok.len, fi->tok.lex);
 
-		for (j = 0; j < sym->aggregate.nr; j++) {
-			struct symbol *f = sym->aggregate.members[j];
-			if (f->kind == SYM_STRUCT_FIELD &&
-			    f->tok.len == fi->tok.len &&
-			    !memcmp(f->tok.lex, fi->tok.lex, f->tok.len)) {
-				field = f;
-				break;
-			}
-		}
+		entry = hashmap_get(&sym->aggregate.member_hashmap, h,
+				    symbol_cmp, &fi->tok);
+		if (entry)
+			field = ((struct symbol_entry *)entry)->sym;
 
 		if (!field) {
 			diag_emit(&sc->cc->diag, ERROR,
@@ -1426,26 +1440,21 @@ static struct type *check_struct_init(struct semantic_context *sc, struct ast_no
 				  (int)fi->tok.len, fi->tok.lex,
 				  type_name(field->type),
 				  type_name(val_type));
+
+		se = arena_alloc(&sc->cc->arena, sizeof(*se));
+		se->entry.hash = h;
+		se->sym = field;
+		hashmap_put(&init_fields, &se->entry);
 	}
 
 	for (i = 0; i < sym->aggregate.nr; i++) {
 		struct symbol *member = sym->aggregate.members[i];
-		size_t j;
-		int found = 0;
 
 		if (member->kind != SYM_STRUCT_FIELD)
 			continue;
 
-		for (j = 0; j < node->list.nr_item; j++) {
-			struct ast_node *field = node->list.items[j];
-			if (field->tok.len == member->tok.len &&
-			    !memcmp(field->tok.lex, member->tok.lex, field->tok.len)) {
-				found = 1;
-				break;
-			}
-		}
-
-		if (!found)
+		unsigned int h = strhash(member->tok.lex, member->tok.len);
+		if (!hashmap_get(&init_fields, h, symbol_cmp, &member->tok))
 			diag_emit(&sc->cc->diag, ERROR,
 				  loc_from_token(sc, node->tok),
 				  "missing field '%.*s' in '%.*s'",
@@ -1453,6 +1462,7 @@ static struct type *check_struct_init(struct semantic_context *sc, struct ast_no
 				  (int)sym->tok.len, sym->tok.lex);
 	}
 
+	hashmap_free(&init_fields);
 	return sym->type;
 }
 
