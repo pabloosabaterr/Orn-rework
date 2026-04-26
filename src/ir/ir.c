@@ -8,6 +8,52 @@
 #include <assert.h>
 #include <string.h>
 
+static enum ir_op ast_op_to_ir(enum op_type op)
+{
+	switch (op) {
+	case OP_ADD:
+		return IR_ADD;
+	case OP_SUB:
+		return IR_SUB;
+	case OP_MUL:
+		return IR_MUL;
+	case OP_DIV:
+		return IR_DIV;
+	case OP_MOD:
+		return IR_MOD;
+	case OP_BIT_AND:
+		return IR_AND;
+	case OP_BIT_OR:
+		return IR_OR;
+	case OP_BIT_XOR:
+		return IR_XOR;
+	case OP_LSHIFT:
+		return IR_SHL;
+	case OP_RSHIFT:
+		return IR_SHR;
+	case OP_EQ:
+		return IR_EQ;
+	case OP_NEQ:
+		return IR_NEQ;
+	case OP_LT:
+		return IR_LT;
+	case OP_GT:
+		return IR_GT;
+	case OP_LE:
+		return IR_LE;
+	case OP_GE:
+		return IR_GE;
+	default:
+		die("unhandled op in ast_op_to_ir: %d", op);
+	}
+}
+
+static int is_cmp_op(enum ir_op op)
+{
+	return op == IR_EQ || op == IR_NEQ || op == IR_LT || op == IR_GT ||
+	       op == IR_LE || op == IR_GE;
+}
+
 static struct ir_type *prim_new(struct ir_context *ic, enum ir_kind kind)
 {
 	struct ir_type *t = arena_alloc(&ic->cc->arena, sizeof(*t));
@@ -187,7 +233,7 @@ static size_t ir_type_sizeof(struct ir_type *t)
 	}
 }
 
-struct ir_type *ir_sem_type_lowering(struct ir_context *ic, struct type *sem_type)
+static struct ir_type *ir_sem_type_lowering(struct ir_context *ic, struct type *sem_type)
 {
 	switch (sem_type->kind) {
 	case TY_BOOL:
@@ -345,7 +391,7 @@ struct ir_type *ir_sem_type_lowering(struct ir_context *ic, struct type *sem_typ
 	}
 }
 
-struct ir_block *ir_build_block(struct ir_context *ic, const char *label)
+static struct ir_block *ir_build_block(struct ir_context *ic, const char *label)
 {
 	struct ir_block *b = arena_alloc(&ic->cc->arena, sizeof(*b));
 	memset(b, 0, sizeof(*b));
@@ -364,7 +410,7 @@ void ir_set_block(struct ir_context *ic, struct ir_block *block)
 	ic->current_block = block;
 }
 
-struct ir_function *ir_build_fn(struct ir_context *ic, struct ast_node *node)
+static struct ir_function *ir_build_fn(struct ir_context *ic, struct ast_node *node)
 {
 	struct ir_function *fn;
 	struct symbol *sym = node->rsym;
@@ -459,8 +505,8 @@ void ir_emit_cjump(struct ir_context *ic, struct ir_operand *cond,
 	else_b->preds[else_b->nr_pred++] = ic->current_block;
 }
 
-struct ir_operand *ir_emit_const_int(struct ir_context *ic, long long val,
-				     struct ir_type *type)
+static struct ir_operand *ir_emit_const_int(struct ir_context *ic, long long val,
+					    struct ir_type *type)
 {
 	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
 	memset(inst, 0, sizeof(*inst));
@@ -483,7 +529,7 @@ struct ir_operand *ir_emit_const_int(struct ir_context *ic, long long val,
 	return inst->res;
 }
 
-void ir_emit_ret(struct ir_context *ic, struct ir_operand *val)
+static void ir_emit_ret(struct ir_context *ic, struct ir_operand *val)
 {
 	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
 	memset(inst, 0, sizeof(*inst));
@@ -504,12 +550,105 @@ void ir_emit_ret(struct ir_context *ic, struct ir_operand *val)
 	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
 }
 
+static struct ir_operand *ir_emit_cast(struct ir_context *ic,
+				       struct ir_operand *operand,
+				       struct ir_type *type)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(&inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = IR_CAST;
+	inst->parent = ic->current_block;
+
+	inst->res = arena_alloc(&ic->cc->arena, sizeof(*inst->res));
+	inst->res->sid = ic->next_id++;
+	inst->res->type = type;
+	inst->res->def = inst;
+
+	inst->operands = arena_alloc(&ic->cc->arena, sizeof(*inst->operands));
+	inst->operands[0] = operand;
+	inst->nr_operand = 1;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+
+	return inst->res;
+}
+
+static struct ir_operand *ir_emit_binop(struct ir_context *ic, enum ir_op op,
+					struct ir_operand *lhs, struct ir_operand *rhs,
+					struct ir_type *res_type)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = op;
+	inst->parent = ic->current_block;
+
+	inst->res = arena_alloc(&ic->cc->arena, sizeof(*inst->res));
+	inst->res->sid = ic->next_id++;
+	inst->res->type = res_type;
+	inst->res->def = inst;
+
+	inst->operands = arena_alloc(&ic->cc->arena, sizeof(*inst->operands) * 2);
+	inst->operands[0] = lhs;
+	inst->operands[1] = rhs;
+	inst->nr_operand = 2;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+
+	return inst->res;
+}
+
 static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *node)
 {
 	switch (node->type) {
 	case NODE_INT:
 		return ir_emit_const_int(ic, node->lit_int.val,
 					 ir_sem_type_lowering(ic, node->rtype));
+	case NODE_BINARY: {
+		struct ir_operand *lhs = lower_expr(ic, node->binary.left);
+		struct ir_operand *rhs = lower_expr(ic, node->binary.right);
+		struct ir_type *res = ir_sem_type_lowering(ic, node->rtype);
+		enum ir_op op = ast_op_to_ir(node->binary.type);
+
+		if (!is_cmp_op(op)) {
+			if (lhs->type != res)
+				lhs = ir_emit_cast(ic, lhs, res);
+			if (rhs->type != res)
+				rhs = ir_emit_cast(ic, rhs, res);
+		}
+
+		return ir_emit_binop(ic, op, lhs, rhs, res);
+	}
+	case NODE_UNARY: {
+		struct ir_type *res_type = ir_sem_type_lowering(ic, node->rtype);
+
+		switch (node->unary.type) {
+		case OP_NEG: {
+			struct ir_operand *x = lower_expr(ic, node->unary.operand);
+			struct ir_operand *zero = ir_emit_const_int(ic, 0, x->type);
+			return ir_emit_binop(ic, IR_SUB, zero, x, res_type);
+		}
+		case OP_BIT_NOT: {
+			struct ir_operand *x = lower_expr(ic, node->unary.operand);
+			struct ir_operand *ones = ir_emit_const_int(ic, -1, x->type);
+			return ir_emit_binop(ic, IR_XOR, x, ones, res_type);
+		}
+		case OP_NOT: {
+			struct ir_operand *x = lower_expr(ic, node->unary.operand);
+			struct ir_operand *zero = ir_emit_const_int(ic, 0, x->type);
+			return ir_emit_binop(ic, IR_EQ, x, zero, ic->t_i1);
+		}
+		default:
+			die("unhandled unary op in IR lowering: %d", node->unary.type);
+		}
+	}
 	default:
 		die("unhandled expr in IR lowering: %d", node->type);
 	}
@@ -617,6 +756,46 @@ static const char *ir_type_str(struct ir_type *t)
 	}
 }
 
+static const char *ir_op_str(enum ir_op op)
+{
+	switch (op) {
+	case IR_ADD:
+		return "add";
+	case IR_SUB:
+		return "sub";
+	case IR_MUL:
+		return "mul";
+	case IR_DIV:
+		return "div";
+	case IR_MOD:
+		return "mod";
+	case IR_AND:
+		return "and";
+	case IR_OR:
+		return "or";
+	case IR_XOR:
+		return "xor";
+	case IR_SHL:
+		return "shl";
+	case IR_SHR:
+		return "shr";
+	case IR_EQ:
+		return "eq";
+	case IR_NEQ:
+		return "neq";
+	case IR_LT:
+		return "lt";
+	case IR_GT:
+		return "gt";
+	case IR_LE:
+		return "le";
+	case IR_GE:
+		return "ge";
+	default:
+		return NULL;
+	}
+}
+
 static void ir_dump_inst(struct ir_inst *inst)
 {
 	printf("    ");
@@ -637,9 +816,78 @@ static void ir_dump_inst(struct ir_inst *inst)
 		else
 			printf("ret void");
 		break;
-	default:
-		printf("UNKNOWN op=%d", inst->op);
+	case IR_ALLOC:
+		printf("alloc %s", ir_type_str(inst->res->type));
 		break;
+	case IR_LOAD:
+		printf("load %s %%%u",
+		       ir_type_str(inst->res->type),
+		       inst->operands[0]->sid);
+		break;
+	case IR_STORE:
+		printf("store %s %%%u, %%%u",
+		       ir_type_str(inst->operands[1]->type),
+		       inst->operands[1]->sid,
+		       inst->operands[0]->sid);
+		break;
+	case IR_GEP:
+		printf("gep %s %%%u, %%%u",
+		       ir_type_str(inst->res->type),
+		       inst->operands[0]->sid,
+		       inst->operands[1]->sid);
+		break;
+	case IR_JUMP:
+		printf("jump %s",
+		       inst->parent->succs[0]->label);
+		break;
+	case IR_CJUMP:
+		printf("cjump %%%u, %s, %s",
+		       inst->operands[0]->sid,
+		       inst->parent->succs[0]->label,
+		       inst->parent->succs[1]->label);
+		break;
+	case IR_CALL:
+		printf("call %%%u(",
+		       inst->operands[0]->sid);
+		for (size_t i = 1; i < inst->nr_operand; i++) {
+			if (i > 1)
+				printf(", ");
+			printf("%s %%%u",
+			       ir_type_str(inst->operands[i]->type),
+			       inst->operands[i]->sid);
+		}
+		printf(")");
+		break;
+	case IR_PARAM:
+		printf("param %s %lld",
+		       ir_type_str(inst->res->type), inst->imm);
+		break;
+	case IR_PHI:
+		printf("phi %s", ir_type_str(inst->res->type));
+		for (size_t i = 0; i < inst->nr_operand; i++)
+			printf("%s[%%%u, %s]",
+			       i ? ", " : " ",
+			       inst->operands[i]->sid,
+			       inst->parent->preds[i]->label);
+		break;
+	case IR_CAST:
+		printf("cast %s %%%u to %s",
+		       ir_type_str(inst->operands[0]->type),
+		       inst->operands[0]->sid,
+		       ir_type_str(inst->res->type));
+		break;
+	default: {
+		const char *binop;
+		binop = ir_op_str(inst->op);
+		if (binop)
+			printf("%s %s %%%u, %%%u",
+			       binop,
+			       ir_type_str(inst->res->type),
+			       inst->operands[0]->sid,
+			       inst->operands[1]->sid);
+		else
+			printf("UNKNOWN op=%d", inst->op);
+	}
 	}
 
 	printf("\n");
