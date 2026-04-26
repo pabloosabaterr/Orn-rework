@@ -1520,8 +1520,16 @@ static void check_return(struct semantic_context *sc, struct ast_node *node)
 	if (node->return_stmt.expr) {
 		if (expected->kind == TY_ENUM || expected->kind == TY_STRUCT)
 			sc->expected_sym = expected->named.dec;
+
 		ret = check_expr(sc, node->return_stmt.expr);
 		sc->expected_sym = NULL;
+
+		if (node->return_stmt.expr->type == NODE_ID &&
+		    !node->return_stmt.expr->rsym->var.is_init)
+			diag_emit(&sc->cc->diag, ERROR,
+				  loc_from_token(sc, node->return_stmt.expr->tok),
+				  "variables being returned must be initialized");
+
 		if (ret != sc->t_err && ret != expected)
 			diag_emit(&sc->cc->diag, ERROR, loc_from_token(sc, node->tok),
 				  "return type mismatch: expected '%s' "
@@ -1769,6 +1777,7 @@ static void check_const(struct semantic_context *sc, struct ast_node *node)
 		sym->type = ann;
 		scope_insert(sc, sc->current, sym);
 		node->rsym = sym;
+		node->rsym->var.is_init = 1;
 	} else {
 		node->rsym->type = ann;
 	}
