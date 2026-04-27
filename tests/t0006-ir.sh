@@ -103,4 +103,41 @@ test_expect_success 'let declaration, store and load' '
 	test_cmp expect actual
 '
 
+test_expect_success 'numeric types except int' '
+	cat >input.orn <<-\EOF &&
+	fn foo() -> void {
+		let a: float = 3.14;
+		let b: bool = true;
+		let c: *int = null;
+		let d: double = 2.71828;
+		let e: char = '\''x'\'';
+	}
+	EOF
+	cat >expect <<-\EOF &&
+	fn foo() -> void {
+	entry:
+	    %0 = alloc f32
+	    %1 = const f64 3.140000
+	    %2 = cast f64 %1 to f32
+	    store f32 %2, %0
+	    %3 = alloc i1
+	    %4 = const i1 1
+	    store i1 %4, %3
+	    %5 = alloc ptr
+	    %6 = const ptr 0
+	    store ptr %6, %5
+	    %7 = alloc f64
+	    %8 = const f64 2.718280
+	    store f64 %8, %7
+	    %9 = alloc i8
+	    %10 = const i8 120
+	    store i8 %10, %9
+	}
+
+	Program compiled with 0 errors
+	EOF
+	"$ORN" --dump-ir input.orn >actual &&
+	test_cmp expect actual
+'
+
 test_done
