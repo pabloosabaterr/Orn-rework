@@ -554,7 +554,7 @@ static struct ir_operand *ir_emit_cast(struct ir_context *ic,
 				       struct ir_operand *operand,
 				       struct ir_type *type)
 {
-	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(&inst));
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
 	memset(inst, 0, sizeof(*inst));
 
 	inst->op = IR_CAST;
@@ -674,12 +674,46 @@ static void ir_emit_store(struct ir_context *ic, struct ir_operand *ptr,
 	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
 }
 
+static struct ir_operand *ir_emit_const_float(struct ir_context *ic, double val, struct ir_type *type)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = IR_CONST;
+	inst->parent = ic->current_block;
+
+	inst->res = arena_alloc(&ic->cc->arena, sizeof(*inst->res));
+	inst->res->sid = ic->next_id++;
+	inst->res->type = type;
+	inst->res->def = inst;
+
+	inst->fimm = val;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+
+	return inst->res;
+}
+
 static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *node)
 {
 	switch (node->type) {
 	case NODE_INT:
 		return ir_emit_const_int(ic, node->lit_int.val,
 					 ir_sem_type_lowering(ic, node->rtype));
+	case NODE_BOOL:
+		return ir_emit_const_int(ic, node->lit_bool.val,
+					 ir_sem_type_lowering(ic, node->rtype));
+	case NODE_CHAR:
+		return ir_emit_const_int(ic, (long long)node->lit_char.val[0],
+					 ir_sem_type_lowering(ic, node->rtype));
+	case NODE_NULL:
+		return ir_emit_const_int(ic, 0, ir_sem_type_lowering(ic, node->rtype));
+	case NODE_FLOATING:
+		return ir_emit_const_float(ic, node->lit_floating.val,
+					   ir_sem_type_lowering(ic, node->rtype));
 	case NODE_BINARY: {
 		struct ir_operand *lhs = lower_expr(ic, node->binary.left);
 		struct ir_operand *rhs = lower_expr(ic, node->binary.right);
@@ -753,16 +787,40 @@ static void lower_dec(struct ir_context *ic, struct ast_node *node)
 	case NODE_LET_DEC: {
 		struct ir_type *type = ir_sem_type_lowering(ic, node->rsym->type);
 		struct ir_operand *slot = ir_emit_alloc(ic, type);
-		struct ir_operand *operand;
+		struct ast_node *init;
 
 		node->rsym->ir_slot = slot;
 
-		if (node->rsym->kind == SYM_VAR && node->let_dec.init) {
-			operand = lower_expr(ic, node->let_dec.init);
-			ir_emit_store(ic, slot, operand);
-		} else if (node->rsym->kind == SYM_CONST && node->const_dec.init) {
-			operand = lower_expr(ic, node->const_dec.init);
-			ir_emit_store(ic, slot, operand);
+		init = (node->rsym->kind == SYM_CONST) ? node->const_dec.init :
+							 node->let_dec.init;
+
+		if (init) {
+			struct ir_operand *val = lower_expr(ic, init);
+			/*
+			 * All floating point literals are double unless
+			 * specified to be a float, given the case:
+			 *
+			 * let x: float = 3.14;
+			 *
+			 * x is f32, while 3.14 f64. throw a cast so the store
+			 * stores the correct value, optimizations will turn
+			 * the f64 const + f32 cast to f32 const.
+			 */
+			if (val->type != slot->type) {
+				/*
+				 * Null literals are ptr_void 0 but they need
+				 * to adopt the destination ptr type. Instead
+				 * of casting, rewrite the const type since
+				 * the value will always be 0.
+				 */
+				if (val->def->op == IR_CONST &&
+				    val->def->imm == 0 &&
+				    val->type->kind == IR_PTR)
+					val->type = slot->type;
+				else
+					val = ir_emit_cast(ic, val, slot->type);
+			}
+			ir_emit_store(ic, slot, val);
 		}
 
 		break;
@@ -897,8 +955,13 @@ static void ir_dump_inst(struct ir_inst *inst)
 
 	switch (inst->op) {
 	case IR_CONST:
-		printf("const %s %lld",
-		       ir_type_str(inst->res->type), inst->imm);
+		if (inst->res->type->kind == IR_F32 ||
+		    inst->res->type->kind == IR_F64)
+			printf("const %s %f", ir_type_str(inst->res->type),
+			       inst->fimm);
+		else
+			printf("const %s %lld", ir_type_str(inst->res->type),
+			       inst->imm);
 		break;
 	case IR_RET:
 		if (inst->nr_operand)

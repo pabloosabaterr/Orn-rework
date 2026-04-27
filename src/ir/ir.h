@@ -83,6 +83,7 @@ struct ir_operand {
 struct ir_inst {
 	enum ir_op op;
 	long long imm;
+	double fimm;
 	/*
 	 * Output operand; can be NULL.
 	 */
