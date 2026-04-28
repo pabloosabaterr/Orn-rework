@@ -78,6 +78,11 @@ struct ir_operand {
 	unsigned sid;
 	struct ir_type *type;
 	struct ir_inst *def;
+	/*
+	 * Non-NULL for function references.
+	 * Works for function name on ir dumping.
+	 */
+	struct symbol *sym;
 };
 
 struct ir_inst {

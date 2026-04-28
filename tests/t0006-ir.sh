@@ -278,4 +278,41 @@ test_expect_success 'while loop' '
 	test_cmp expect actual
 '
 
+test_expect_success 'function call and function params' '
+	cat >input.orn <<-\EOF &&
+	fn add(a: int, b: int) -> int {
+		ret a + b;
+	}
+
+	fn main() -> int {
+		ret add(3, 4);
+	}
+	EOF
+	cat >expect <<-\EOF &&
+	fn add(i32 %0, i32 %1) -> i32 {
+	entry:
+	    %2 = alloc i32
+	    store i32 %0, %2
+	    %3 = alloc i32
+	    store i32 %1, %3
+	    %4 = load i32 %2
+	    %5 = load i32 %3
+	    %6 = add i32 %4, %5
+	    ret i32 %6
+	}
+
+	fn main() -> i32 {
+	entry:
+	    %0 = const i32 3
+	    %1 = const i32 4
+	    %2 = call add(i32 %0, i32 %1)
+	    ret i32 %2
+	}
+
+	Program compiled with 0 errors
+	EOF
+	"$ORN" --dump-ir input.orn >actual &&
+	test_cmp expect actual
+'
+
 test_done
