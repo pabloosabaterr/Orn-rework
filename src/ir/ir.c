@@ -815,6 +815,18 @@ static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *nod
 	}
 }
 
+/*
+ * Only creates the block rather than creating it and appending it to
+ * the blocks like ir_build_block() does
+ */
+static struct ir_block *ir_create_block(struct ir_context *ic, const char *lab)
+{
+	struct ir_block *block = arena_alloc(&ic->cc->arena, sizeof(*block));
+	memset(block, 0, sizeof(*block));
+	block->label = lab;
+	return block;
+}
+
 static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 {
 	switch (node->type) {
@@ -844,9 +856,7 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 		 * Manually create the merge block to avoid having it appended
 		 *  before the branch blocks
 		 */
-		struct ir_block *merge = arena_alloc(&ic->cc->arena, sizeof(*merge));
-		memset(merge, 0, sizeof(*merge));
-		merge->label = "merge";
+		struct ir_block *merge = ir_create_block(ic, "merge");
 
 		for (i = 0; i < node->if_stmt.nr_branch; i++) {
 			struct ir_block *then = ir_build_block(ic, "then");
@@ -883,6 +893,78 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 		ic->current_fn->blocks[ic->current_fn->nr_block++] = merge;
 
 		ir_set_block(ic, merge);
+		break;
+	}
+	case NODE_WHILE: {
+		struct ir_block *exit = ir_create_block(ic, "exit");
+		struct ir_block *cond = ir_build_block(ic, "cond");
+		struct ir_block *body = ir_build_block(ic, "body");
+		struct ir_operand *cond_expr;
+
+		ir_emit_jump(ic, cond);
+		ir_set_block(ic, cond);
+
+		cond_expr = lower_expr(ic, node->while_stmt.cond);
+
+		ir_emit_cjump(ic, cond_expr, body, exit);
+		ir_set_block(ic, body);
+		lower_stmt(ic, node->while_stmt.body);
+		ir_emit_jump(ic, cond);
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_fn->blocks,
+				 ic->current_fn->nr_block + 1,
+				 ic->current_fn->alloc_block);
+		ic->current_fn->blocks[ic->current_fn->nr_block++] = exit;
+		ir_set_block(ic, exit);
+		break;
+	}
+	case NODE_FOR: {
+		struct ast_node *range = node->for_stmt.range;
+		struct ir_type *type;
+		struct ir_block *exit, *init, *cond, *body, *it;
+		struct ir_operand *slot, *start, *cur, *end, *cmp;
+		struct ir_operand *prev_val, *one, *res;
+
+		assert(range->binary.type == OP_RANGE);
+
+		type = ir_sem_type_lowering(ic, node->rsym->type);
+
+		exit = ir_create_block(ic, "exit");
+		init = ir_build_block(ic, "init");
+		cond = ir_build_block(ic, "cond");
+		body = ir_build_block(ic, "body");
+		it = ir_build_block(ic, "it");
+
+		ir_emit_jump(ic, init);
+		ir_set_block(ic, init);
+
+		slot = ir_emit_alloc(ic, type);
+		node->rsym->ir_slot = slot;
+		start = lower_expr(ic, range->binary.left);
+		ir_emit_store(ic, slot, start);
+		ir_emit_jump(ic, cond);
+
+		ir_set_block(ic, cond);
+		cur = ir_emit_load(ic, slot);
+		end = lower_expr(ic, range->binary.right);
+		cmp = ir_emit_binop(ic, IR_LT, cur, end, ic->t_i1);
+		ir_emit_cjump(ic, cmp, body, exit);
+
+		ir_set_block(ic, body);
+		lower_stmt(ic, node->for_stmt.body);
+		ir_emit_jump(ic, it);
+
+		ir_set_block(ic, it);
+		prev_val = ir_emit_load(ic, slot);
+		one = ir_emit_const_int(ic, 1, slot->type);
+		res = ir_emit_binop(ic, IR_ADD, prev_val, one, type);
+		ir_emit_store(ic, slot, res);
+		ir_emit_jump(ic, cond);
+
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_fn->blocks,
+				 ic->current_fn->nr_block + 1,
+				 ic->current_fn->alloc_block);
+		ic->current_fn->blocks[ic->current_fn->nr_block++] = exit;
+		ir_set_block(ic, exit);
 		break;
 	}
 	case NODE_BLOCK: {

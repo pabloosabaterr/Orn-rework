@@ -203,4 +203,79 @@ test_expect_success 'flow branches' '
 	test_cmp expect actual
 '
 
+test_expect_success 'for loop' '
+	cat >input.orn <<-\EOF &&
+	fn foo() -> int {
+		true;
+		for i in 0..10 {
+			true;
+		}
+		true;
+	}
+	EOF
+	cat >expect <<-\EOF &&
+	fn foo() -> i32 {
+	entry:
+	    %0 = const i1 1
+	    jump init
+	init:
+	    %1 = alloc i32
+	    %2 = const i32 0
+	    store i32 %2, %1
+	    jump cond
+	cond:
+	    %3 = load i32 %1
+	    %4 = const i32 10
+	    %5 = lt i1 %3, %4
+	    cjump %5, body, exit
+	body:
+	    %6 = const i1 1
+	    jump it
+	it:
+	    %7 = load i32 %1
+	    %8 = const i32 1
+	    %9 = add i32 %7, %8
+	    store i32 %9, %1
+	    jump cond
+	exit:
+	    %10 = const i1 1
+	}
+
+	Program compiled with 0 errors
+	EOF
+	"$ORN" --dump-ir input.orn >actual &&
+	test_cmp expect actual
+'
+
+test_expect_success 'while loop' '
+	cat >input.orn <<-\EOF &&
+	fn foo() -> int {
+		true;
+		while true {
+			true;
+		}
+		true;
+	}
+	EOF
+	cat >expect <<-\EOF &&
+	fn foo() -> i32 {
+	entry:
+	    %0 = const i1 1
+	    jump cond
+	cond:
+	    %1 = const i1 1
+	    cjump %1, body, exit
+	body:
+	    %2 = const i1 1
+	    jump cond
+	exit:
+	    %3 = const i1 1
+	}
+
+	Program compiled with 0 errors
+	EOF
+	"$ORN" --dump-ir input.orn >actual &&
+	test_cmp expect actual
+'
+
 test_done
