@@ -1,5 +1,6 @@
 #include "ir/ir.h"
 #include "compiler.h"
+#include "lexer/lexer.h"
 #include "memory/arena.h"
 #include "parser/ast.h"
 #include "semantic/semantic.h"
@@ -45,6 +46,24 @@ static enum ir_op ast_op_to_ir(enum op_type op)
 		return IR_GE;
 	default:
 		die("unhandled op in ast_op_to_ir: %d", op);
+	}
+}
+
+static enum op_type assign_to_binop(enum op_type op)
+{
+	switch (op) {
+	case OP_PLUSEQ:
+		return OP_ADD;
+	case OP_MINUSEQ:
+		return OP_SUB;
+	case OP_STAREQ:
+		return OP_MUL;
+	case OP_SLASHEQ:
+		return OP_DIV;
+	case OP_MODEQ:
+		return OP_MOD;
+	default:
+		die("unhandled compound assign: %d", op);
 	}
 }
 
@@ -697,6 +716,17 @@ static struct ir_operand *ir_emit_const_float(struct ir_context *ic, double val,
 	return inst->res;
 }
 
+static struct ir_operand *lower_lvalue(struct ast_node *node)
+{
+	assert(node->rsym->ir_slot);
+	switch (node->type) {
+	case NODE_ID:
+		return node->rsym->ir_slot;
+	default:
+		die("unhandled lvalue");
+	}
+}
+
 static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *node)
 {
 	switch (node->type) {
@@ -728,6 +758,26 @@ static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *nod
 		}
 
 		return ir_emit_binop(ic, op, lhs, rhs, res);
+	}
+	case NODE_ASSIGN: {
+		struct ir_operand *slot = lower_lvalue(node->assign.target);
+		struct ir_operand *val = lower_expr(ic, node->assign.val);
+
+		/*
+		 * Compund assignments need to load the previous val, make the
+		 * operation and then store it.
+		 */
+		if (node->assign.type != OP_ASSIGN) {
+			struct ir_operand *prev_val = ir_emit_load(ic, slot);
+			val = ir_emit_binop(ic, ast_op_to_ir(assign_to_binop(node->assign.type)),
+					    prev_val, val, prev_val->type);
+		}
+
+		if (val->type != slot->type)
+			val = ir_emit_cast(ic, val, slot->type);
+
+		ir_emit_store(ic, slot, val);
+		return val;
 	}
 	case NODE_UNARY: {
 		struct ir_type *res_type = ir_sem_type_lowering(ic, node->rtype);
@@ -770,6 +820,18 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 		if (node->return_stmt.expr)
 			val = lower_expr(ic, node->return_stmt.expr);
 		ir_emit_ret(ic, val);
+		break;
+	}
+	case NODE_INCDEC: {
+		struct ir_operand *slot = lower_lvalue(node->incdec.target);
+		struct ir_operand *prev_val = ir_emit_load(ic, slot);
+
+		struct ir_operand *one = ir_emit_const_int(ic, 1, slot->type);
+		enum ir_op op = node->incdec.type == OP_INC ? IR_ADD : IR_SUB;
+
+		struct ir_operand *res = ir_emit_binop(ic, op, prev_val, one,
+						       slot->type);
+		ir_emit_store(ic, slot, res);
 		break;
 	}
 	case NODE_EXPR_STMT:
