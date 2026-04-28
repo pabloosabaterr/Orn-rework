@@ -158,4 +158,49 @@ test_expect_success 'numeric types except int' '
 	test_cmp expect actual
 '
 
+test_expect_success 'flow branches' '
+	cat >input.orn <<-\EOF &&
+	fn foo() -> int {
+		let x: int = 10;
+		if x > 0 {
+			x++;
+		} else {
+			x--;
+		}
+		ret x;
+	}
+	EOF
+	cat >expect <<-\EOF &&
+	fn foo() -> i32 {
+	entry:
+	    %0 = alloc i32
+	    %1 = const i32 10
+	    store i32 %1, %0
+	    %2 = load i32 %0
+	    %3 = const i32 0
+	    %4 = gt i1 %2, %3
+	    cjump %4, then, else
+	then:
+	    %5 = load i32 %0
+	    %6 = const i32 1
+	    %7 = add i32 %5, %6
+	    store i32 %7, %0
+	    jump merge
+	else:
+	    %8 = load i32 %0
+	    %9 = const i32 1
+	    %10 = sub i32 %8, %9
+	    store i32 %10, %0
+	    jump merge
+	merge:
+	    %11 = load i32 %0
+	    ret i32 %11
+	}
+
+	Program compiled with 0 errors
+	EOF
+	"$ORN" --dump-ir input.orn >actual &&
+	test_cmp expect actual
+'
+
 test_done

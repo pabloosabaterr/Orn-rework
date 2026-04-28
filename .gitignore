@@ -2,4 +2,9 @@ build/
 *.o
 *.d
 compile_commands.json
+
+# Book build
 docs/book/
+
+# JetBrains IDEs
+.idea/
