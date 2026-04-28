@@ -7,7 +7,10 @@
 #include "memory/wrapper.h"
 #include "semantic/type.h"
 #include <assert.h>
+#include <stddef.h>
 #include <string.h>
+
+static void lower_dec(struct ir_context *ic, struct ast_node *node);
 
 static enum ir_op ast_op_to_ir(enum op_type op)
 {
@@ -832,6 +835,60 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 		struct ir_operand *res = ir_emit_binop(ic, op, prev_val, one,
 						       slot->type);
 		ir_emit_store(ic, slot, res);
+		break;
+	}
+	case NODE_IF: {
+		size_t i;
+
+		/*
+		 * Manually create the merge block to avoid having it appended
+		 *  before the branch blocks
+		 */
+		struct ir_block *merge = arena_alloc(&ic->cc->arena, sizeof(*merge));
+		memset(merge, 0, sizeof(*merge));
+		merge->label = "merge";
+
+		for (i = 0; i < node->if_stmt.nr_branch; i++) {
+			struct ir_block *then = ir_build_block(ic, "then");
+			struct ir_block *next;
+
+			if (i + 1 < node->if_stmt.nr_branch)
+				next = ir_build_block(ic, "elif");
+			else if (node->if_stmt.else_body)
+				next = ir_build_block(ic, "else");
+			else
+				next = merge;
+
+			struct ir_operand *cond = lower_expr(ic, node->if_stmt.conds[i]);
+			ir_emit_cjump(ic, cond, then, next);
+
+			ir_set_block(ic, then);
+			lower_stmt(ic, node->if_stmt.bodies[i]);
+			ir_emit_jump(ic, merge);
+
+			ir_set_block(ic, next);
+		}
+
+		if (node->if_stmt.else_body) {
+			lower_stmt(ic, node->if_stmt.else_body);
+			ir_emit_jump(ic, merge);
+		}
+
+		/*
+		 * Append merge block after all the branches
+		 */
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_fn->blocks,
+				 ic->current_fn->nr_block + 1,
+				 ic->current_fn->alloc_block);
+		ic->current_fn->blocks[ic->current_fn->nr_block++] = merge;
+
+		ir_set_block(ic, merge);
+		break;
+	}
+	case NODE_BLOCK: {
+		size_t i;
+		for (i = 0; i < node->block.nr; i++)
+			lower_dec(ic, node->block.childs[i]);
 		break;
 	}
 	case NODE_EXPR_STMT:
