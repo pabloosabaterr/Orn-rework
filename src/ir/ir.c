@@ -8,6 +8,7 @@
 #include "semantic/type.h"
 #include <assert.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 
 static void lower_dec(struct ir_context *ic, struct ast_node *node);
@@ -778,6 +779,34 @@ static struct ir_operand *ir_emit_call(struct ir_context *ic,
 	return inst->res;
 }
 
+static struct ir_operand *ir_emit_gep(struct ir_context *ic,
+				      struct ir_operand *base,
+				      struct ir_operand *index,
+				      struct ir_type *type)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = IR_GEP;
+	inst->parent = ic->current_block;
+
+	inst->res = arena_alloc(&ic->cc->arena, sizeof(*inst->res));
+	inst->res->sid = ic->next_id++;
+	inst->res->type = type;
+
+	inst->operands = arena_alloc(&ic->cc->arena, sizeof(*inst->operands) * 2);
+	inst->operands[0] = base;
+	inst->operands[1] = index;
+	inst->nr_operand = 2;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+
+	return inst->res;
+}
+
 static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *node)
 {
 	switch (node->type) {
@@ -795,6 +824,37 @@ static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *nod
 	case NODE_FLOATING:
 		return ir_emit_const_float(ic, node->lit_floating.val,
 					   ir_sem_type_lowering(ic, node->rtype));
+	case NODE_ARRAY_INIT: {
+		struct ir_type *arr_type = ir_sem_type_lowering(ic, node->rtype);
+		struct ir_type *elem_type = arr_type->arr.elem;
+		size_t i;
+
+		for (i = 0; i < node->list.nr_item; i++) {
+			struct ir_operand *idx = ir_emit_const_int(ic, i, ic->t_i32);
+			struct ir_operand *ptr = ir_emit_gep(ic, ic->current_slot, idx, elem_type);
+			struct ir_operand *val = lower_expr(ic, node->list.items[i]);
+			ir_emit_store(ic, ptr, val);
+		}
+
+		return ic->current_slot;
+	}
+	case NODE_FIELD_INIT:
+		return lower_expr(ic, node->field_init.val);
+	case NODE_STRUCT_INIT: {
+		size_t i;
+		struct ir_type *struct_type = ir_sem_type_lowering(ic, node->rtype);
+
+		for (i = 0; i < node->list.nr_item; i++) {
+			struct ir_operand *idx = ir_emit_const_int(ic, i, ic->t_i32);
+			struct ir_operand *ptr = ir_emit_gep(ic,
+							     ic->current_slot,
+							     idx, struct_type->obj.fields[i]);
+			struct ir_operand *val = lower_expr(ic, node->list.items[i]);
+			ir_emit_store(ic, ptr, val);
+		}
+
+		return ic->current_slot;
+	}
 	case NODE_BINARY: {
 		struct ir_operand *lhs = lower_expr(ic, node->binary.left);
 		struct ir_operand *rhs = lower_expr(ic, node->binary.right);
@@ -865,10 +925,66 @@ static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *nod
 		return ir_emit_load(ic, slot);
 	}
 	case NODE_CALL: {
-		struct ir_operand *callee = lower_expr(ic, node->call.callee);
-		struct ir_type *ret = callee->type->fn.ret;
+		struct ir_operand *callee;
+		struct ir_type *ret;
 		struct ir_operand **args;
 		size_t i;
+
+		/*
+		 * Tagged union constructor -> Enum::member(x)
+		 *
+		 * The callee is a namespace node and its rsym is the member
+		 * symbol. It is not a function call but it shares the node.
+		 *
+		 * Builds the tagged union:
+		 *
+		 * 1. alloc the enum struct { i32 tag, [T;N] payload }.
+		 *                                ^^^        ^^^^^^^
+		 *                                 0            1
+		 * 2. store the tag.
+		 * 3. store each argument into the payload.
+		 * 4. load and return the whole val.
+		 */
+		if (node->call.callee->rsym->kind == SYM_ENUM_MEMBER) {
+			struct symbol *member = node->call.callee->rsym;
+			struct symbol *parent = member->enum_member.parent;
+			struct ir_type *type = ir_sem_type_lowering(ic, parent->type);
+			struct ir_operand *tag, *index, *ptr;
+
+			/* Tag */
+			assert(ic->current_slot);
+			tag = ir_emit_const_int(ic, member->enum_member.val, ic->t_i32);
+			index = ir_emit_const_int(ic, 0, ic->t_i32);
+			ptr = ir_emit_gep(ic, ic->current_slot, index, ic->t_i32);
+			ir_emit_store(ic, ptr, tag);
+
+			/* payload */
+			if (node->call.nr_arg > 0) {
+				struct ir_operand *pay_idx;
+				struct ir_operand *pay_ptr;
+				size_t i;
+
+				pay_idx = ir_emit_const_int(ic, 1, ic->t_i32);
+				pay_ptr = ir_emit_gep(ic, ic->current_slot, pay_idx,
+						      type->obj.fields[1]);
+				for (i = 0; i < node->call.nr_arg; i++) {
+					struct ir_operand *arg;
+					struct ir_operand *elem_idx;
+					struct ir_operand *elem_ptr;
+
+					arg = lower_expr(ic, node->call.args[i]);
+					elem_idx = ir_emit_const_int(ic, (long long)i, ic->t_i32);
+					elem_ptr = ir_emit_gep(ic, pay_ptr, elem_idx,
+							       arg->type);
+					ir_emit_store(ic, elem_ptr, arg);
+				}
+			}
+
+			return ic->current_slot;
+		}
+
+		callee = lower_expr(ic, node->call.callee);
+		ret = callee->type->fn.ret;
 
 		args = arena_alloc(&ic->cc->arena,
 				   sizeof(*args) * node->call.nr_arg);
@@ -876,6 +992,51 @@ static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *nod
 			args[i] = lower_expr(ic, node->call.args[i]);
 
 		return ir_emit_call(ic, callee, args, node->call.nr_arg, ret);
+	}
+	case NODE_INDEX: {
+		struct ir_operand *base = lower_lvalue(node->index.obj);
+		struct ir_operand *index = lower_expr(ic, node->index.idx);
+		struct ir_type *type = base->type->arr.elem;
+
+		struct ir_operand *ptr = ir_emit_gep(ic, base, index, type);
+		return ir_emit_load(ic, ptr);
+	}
+	case NODE_MEMBER: {
+		struct ir_operand *base = lower_lvalue(node->member.left);
+		struct ir_operand *idx = ir_emit_const_int(ic,
+							   node->rsym->field.index,
+							   ic->t_i32);
+		struct ir_type *type = ir_sem_type_lowering(ic, node->rtype);
+		struct ir_operand *ptr = ir_emit_gep(ic, base, idx, type);
+		return ir_emit_load(ic, ptr);
+	}
+	case NODE_NAMESPACE: {
+		struct symbol *sym = node->rsym;
+
+		/*
+		 * Even if the enum member doesn't carry payload if the enum
+		 * has a member that does it, is still needed to build the
+		 * tagged union.
+		 */
+		if (ic->current_slot && ic->current_slot->type->kind == IR_STRUCT) {
+			struct ir_operand *tag, *index, *ptr;
+
+			tag = ir_emit_const_int(ic, sym->enum_member.val, ic->t_i32);
+			index = ir_emit_const_int(ic, 0, ic->t_i32);
+			ptr = ir_emit_gep(ic, ic->current_slot, index, ic->t_i32);
+			ir_emit_store(ic, ptr, tag);
+			return ic->current_slot;
+		}
+
+		if (ic->current_slot) {
+			struct ir_operand *val;
+
+			val = ir_emit_const_int(ic, sym->enum_member.val, ic->t_i32);
+			ir_emit_store(ic, ic->current_slot, val);
+			return ic->current_slot;
+		}
+
+		return ir_emit_const_int(ic, sym->enum_member.val, ic->t_i32);
 	}
 	default:
 		die("unhandled expr in IR lowering: %d", node->type);
@@ -1048,6 +1209,15 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 	}
 }
 
+static int is_enum_init(struct ast_node *init)
+{
+	if (init->type == NODE_NAMESPACE)
+		return init->rsym->kind == SYM_ENUM_MEMBER;
+	if (init->type == NODE_CALL)
+		return init->call.callee->rsym->kind == SYM_ENUM_MEMBER;
+	return 0;
+}
+
 static void lower_dec(struct ir_context *ic, struct ast_node *node)
 {
 	switch (node->type) {
@@ -1056,40 +1226,53 @@ static void lower_dec(struct ir_context *ic, struct ast_node *node)
 		struct ir_type *type = ir_sem_type_lowering(ic, node->rsym->type);
 		struct ir_operand *slot = ir_emit_alloc(ic, type);
 		struct ast_node *init;
+		struct ir_operand *val;
 
 		node->rsym->ir_slot = slot;
 
 		init = (node->rsym->kind == SYM_CONST) ? node->const_dec.init :
 							 node->let_dec.init;
 
-		if (init) {
-			struct ir_operand *val = lower_expr(ic, init);
-			/*
-			 * All floating point literals are double unless
-			 * specified to be a float, given the case:
-			 *
-			 * let x: float = 3.14;
-			 *
-			 * x is f32, while 3.14 f64. throw a cast so the store
-			 * stores the correct value, optimizations will turn
-			 * the f64 const + f32 cast to f32 const.
-			 */
-			if (val->type != slot->type) {
-				/*
-				 * Null literals are ptr_void 0 but they need
-				 * to adopt the destination ptr type. Instead
-				 * of casting, rewrite the const type since
-				 * the value will always be 0.
-				 */
-				if (val->def->op == IR_CONST &&
-				    val->def->imm == 0 &&
-				    val->type->kind == IR_PTR)
-					val->type = slot->type;
-				else
-					val = ir_emit_cast(ic, val, slot->type);
-			}
-			ir_emit_store(ic, slot, val);
+		if (!init)
+			break;
+
+		if (init->type == NODE_ARRAY_INIT ||
+		    init->type == NODE_STRUCT_INIT ||
+		    is_enum_init(init)) {
+			ic->current_slot = slot;
+			lower_expr(ic, init);
+			ic->current_slot = NULL;
+			break;
 		}
+
+		val = lower_expr(ic, init);
+
+		/*
+		 * All floating point literals are double unless
+		 * specified to be a float, given the case:
+		 *
+		 * let x: float = 3.14;
+		 *
+		 * x is f32, while 3.14 f64. throw a cast so the store
+		 * stores the correct value, optimizations will turn
+		 * the f64 const + f32 cast to f32 const.
+		 */
+		if (val->type != slot->type) {
+			/*
+			 * Null literals are ptr_void 0 but they need
+			 * to adopt the destination ptr type. Instead
+			 * of casting, rewrite the const type since
+			 * the value will always be 0.
+			 */
+			if (val->def->op == IR_CONST &&
+			    val->def->imm == 0 &&
+			    val->type->kind == IR_PTR)
+				val->type = slot->type;
+			else
+				val = ir_emit_cast(ic, val, slot->type);
+		}
+
+		ir_emit_store(ic, slot, val);
 
 		break;
 	}

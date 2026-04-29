@@ -79,8 +79,8 @@ struct ir_operand {
 	struct ir_type *type;
 	struct ir_inst *def;
 	/*
-	 * Non-NULL for function references.
-	 * Works for function name on ir dumping.
+	 * Non-NULL for function references and named types.
+	 * Works for having the lexeme for dumping.
 	 */
 	struct symbol *sym;
 };
@@ -143,6 +143,15 @@ struct ir_context {
 	struct compiler_context *cc;
 	size_t next_id;
 	struct ir_module *module;
+	/*
+	 * For indexable types (arrs, structs, enums).
+	 * Their initializer has no symbol unline when a variable is assigned
+	 * carries the slot in the symbol and primitive literals return the
+	 * slot of the constant; indexable types need the slot to know where
+	 * to store for each element.
+	 * NULL outside non-indexable type initialization.
+	 */
+	struct ir_operand *current_slot;
 
 	struct ir_function *current_fn;
 	struct ir_block *current_block;
