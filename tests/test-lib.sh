@@ -5,7 +5,7 @@ pass_count=0
 fail_count=0
 
 TEST_DIR_ROOT=$(cd "$(dirname "$0")/.." && pwd)
-ORN="$TEST_DIR_ROOT/build/orn"
+export ORN="$TEST_DIR_ROOT/build/orn"
 
 test_dir=$(mktemp -d)
 trap 'rm -rf "$test_dir"' EXIT
