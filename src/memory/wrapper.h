@@ -3,9 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <stdnoreturn.h>
-
-noreturn void die(const char *fmt, ...);
+#include "utils/log.h"
 
 static inline int check_mult_overflow(size_t a, size_t b)
 {
