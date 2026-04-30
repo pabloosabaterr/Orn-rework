@@ -153,6 +153,20 @@ struct ir_context {
 	 */
 	struct ir_operand *current_slot;
 
+	/*
+	 * Break stack for nested loops
+	 */
+	struct ir_block **break_stack;
+	size_t nr_break;
+	size_t alloc_break;
+
+	/*
+	 * Continue stack for nested loops
+	 */
+	struct ir_block **continue_stack;
+	size_t nr_continue;
+	size_t alloc_continue;
+
 	struct ir_function *current_fn;
 	struct ir_block *current_block;
 

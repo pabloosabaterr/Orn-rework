@@ -595,4 +595,175 @@ test_expect_success 'deref asssign' '
 	test_cmp expect actual
 '
 
+test_expect_success 'break while loop' '
+	cat >input.orn <<-\EOF &&
+	fn foo() {
+		let i: int = 0;
+		while i < 10 {
+			if i == 5 {
+				break;
+			}
+			i++;
+		}
+	}
+	EOF
+	cat >expect <<-\EOF &&
+	fn foo() -> void {
+	entry:
+	    %0 = alloc i32
+	    %1 = const i32 0
+	    store i32 %1, %0
+	    jump cond
+	cond:
+	    %2 = load i32 %0
+	    %3 = const i32 10
+	    %4 = lt i1 %2, %3
+	    cjump %4, body, exit
+	body:
+	    %5 = load i32 %0
+	    %6 = const i32 5
+	    %7 = eq i1 %5, %6
+	    cjump %7, then, merge
+	then:
+	    jump exit
+	merge:
+	    %8 = load i32 %0
+	    %9 = const i32 1
+	    %10 = add i32 %8, %9
+	    store i32 %10, %0
+	    jump cond
+	exit:
+	}
+
+	Program compiled with 0 errors
+	EOF
+	"$ORN" --dump-ir input.orn >actual &&
+	test_cmp expect actual
+'
+
+test_expect_success 'continue while loop' '
+	cat >input.orn <<-\EOF &&
+	fn foo() {
+		let sum: int = 0;
+		let i: int = 0;
+		while i < 10 {
+			i++;
+			if i == 3 {
+				continue;
+			}
+			sum = sum + i;
+		}
+	}
+	EOF
+	cat >expect <<-\EOF &&
+	fn foo() -> void {
+	entry:
+	    %0 = alloc i32
+	    %1 = const i32 0
+	    store i32 %1, %0
+	    %2 = alloc i32
+	    %3 = const i32 0
+	    store i32 %3, %2
+	    jump cond
+	cond:
+	    %4 = load i32 %2
+	    %5 = const i32 10
+	    %6 = lt i1 %4, %5
+	    cjump %6, body, exit
+	body:
+	    %7 = load i32 %2
+	    %8 = const i32 1
+	    %9 = add i32 %7, %8
+	    store i32 %9, %2
+	    %10 = load i32 %2
+	    %11 = const i32 3
+	    %12 = eq i1 %10, %11
+	    cjump %12, then, merge
+	then:
+	    jump cond
+	merge:
+	    %13 = load i32 %0
+	    %14 = load i32 %2
+	    %15 = add i32 %13, %14
+	    store i32 %15, %0
+	    jump cond
+	exit:
+	}
+
+	Program compiled with 0 errors
+	EOF
+	"$ORN" --dump-ir input.orn >actual &&
+	test_cmp expect actual
+'
+
+# Label dumping is confusing but actual jumps are blocks in mem so even tho
+# is confusing to read it's fine.
+test_expect_success 'nested loops' '
+	cat >input.orn <<-\EOF &&
+	fn test_nested() {
+		let i: int = 0;
+		while i < 5 {
+			for j in 0..5 {
+				if j == 2 {
+					break;
+				}
+			}
+			i++;
+		}
+	}
+	EOF
+	cat >expect <<-\EOF &&
+	fn test_nested() -> void {
+	entry:
+	    %0 = alloc i32
+	    %1 = const i32 0
+	    store i32 %1, %0
+	    jump cond
+	cond:
+	    %2 = load i32 %0
+	    %3 = const i32 5
+	    %4 = lt i1 %2, %3
+	    cjump %4, body, exit
+	body:
+	    jump init
+	init:
+	    %5 = alloc i32
+	    %6 = const i32 0
+	    store i32 %6, %5
+	    jump cond
+	cond:
+	    %7 = load i32 %5
+	    %8 = const i32 5
+	    %9 = lt i1 %7, %8
+	    cjump %9, body, exit
+	body:
+	    %10 = load i32 %5
+	    %11 = const i32 2
+	    %12 = eq i1 %10, %11
+	    cjump %12, then, merge
+	it:
+	    %13 = load i32 %5
+	    %14 = const i32 1
+	    %15 = add i32 %13, %14
+	    store i32 %15, %5
+	    jump cond
+	then:
+	    jump exit
+	merge:
+	    jump it
+	exit:
+	    %16 = load i32 %0
+	    %17 = const i32 1
+	    %18 = add i32 %16, %17
+	    store i32 %18, %0
+	    jump cond
+	exit:
+	}
+
+	Program compiled with 0 errors
+	EOF
+	"$ORN" --dump-ir input.orn >actual &&
+	test_cmp expect actual
+'
+
 test_done

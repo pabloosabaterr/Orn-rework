@@ -1098,6 +1098,18 @@ static struct ir_block *ir_create_block(struct ir_context *ic, const char *lab)
 	return block;
 }
 
+/*
+ * Use it to check where there is an statement before an incoditional jump
+ * to avoid having unrecheable jumps.
+ */
+static int is_block_terminated(struct ir_block *block)
+{
+	if (block->nr_inst == 0)
+		return 0;
+	enum ir_op op = block->insts[block->nr_inst - 1]->op;
+	return op == IR_JUMP || op == IR_CJUMP || op == IR_RET;
+}
+
 static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 {
 	switch (node->type) {
@@ -1145,14 +1157,16 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 
 			ir_set_block(ic, then);
 			lower_stmt(ic, node->if_stmt.bodies[i]);
-			ir_emit_jump(ic, merge);
+			if (!is_block_terminated(ic->current_block))
+				ir_emit_jump(ic, merge);
 
 			ir_set_block(ic, next);
 		}
 
 		if (node->if_stmt.else_body) {
 			lower_stmt(ic, node->if_stmt.else_body);
-			ir_emit_jump(ic, merge);
+			if (!is_block_terminated(ic->current_block))
+				ir_emit_jump(ic, merge);
 		}
 
 		/*
@@ -1172,6 +1186,17 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 		struct ir_block *body = ir_build_block(ic, "body");
 		struct ir_operand *cond_expr;
 
+		/*
+		 * Push to the stack blocks for break and continue to jump to.
+		 */
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->continue_stack,
+				 ic->nr_continue + 1, ic->alloc_continue);
+		ic->continue_stack[ic->nr_continue++] = cond;
+
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->break_stack,
+				 ic->nr_break + 1, ic->alloc_break);
+		ic->break_stack[ic->nr_break++] = exit;
+
 		ir_emit_jump(ic, cond);
 		ir_set_block(ic, cond);
 
@@ -1180,7 +1205,15 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 		ir_emit_cjump(ic, cond_expr, body, exit);
 		ir_set_block(ic, body);
 		lower_stmt(ic, node->while_stmt.body);
-		ir_emit_jump(ic, cond);
+		if (!is_block_terminated(ic->current_block))
+			ir_emit_jump(ic, cond);
+
+		/*
+		 * Pop blocks out the stack once the loop ended.
+		 */
+		ic->nr_break--;
+		ic->nr_continue--;
+
 		ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_fn->blocks,
 				 ic->current_fn->nr_block + 1,
 				 ic->current_fn->alloc_block);
@@ -1206,6 +1239,17 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 		body = ir_build_block(ic, "body");
 		it = ir_build_block(ic, "it");
 
+		/*
+		 * Push to the stack blocks for break and continue to jump to.
+		 */
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->break_stack,
+				 ic->nr_break + 1, ic->alloc_break);
+		ic->break_stack[ic->nr_break++] = exit;
+
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->continue_stack,
+				 ic->nr_continue + 1, ic->alloc_continue);
+		ic->continue_stack[ic->nr_continue++] = init;
+
 		ir_emit_jump(ic, init);
 		ir_set_block(ic, init);
 
@@ -1223,7 +1267,8 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 
 		ir_set_block(ic, body);
 		lower_stmt(ic, node->for_stmt.body);
-		ir_emit_jump(ic, it);
+		if (!is_block_terminated(ic->current_block))
+			ir_emit_jump(ic, it);
 
 		ir_set_block(ic, it);
 		prev_val = ir_emit_load(ic, slot);
@@ -1231,6 +1276,12 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 		res = ir_emit_binop(ic, IR_ADD, prev_val, one, type);
 		ir_emit_store(ic, slot, res);
 		ir_emit_jump(ic, cond);
+
+		/*
+		 * Pop blocks out the stack once the loop ended.
+		 */
+		ic->nr_break--;
+		ic->nr_continue--;
 
 		ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_fn->blocks,
 				 ic->current_fn->nr_block + 1,
@@ -1247,6 +1298,18 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 	}
 	case NODE_EXPR_STMT:
 		lower_expr(ic, node->expr_stmt.expr);
+		break;
+	case NODE_BREAK:
+		if (!ic->nr_break)
+			BUG("break has nowhere to jump. break stack 0 elements");
+
+		ir_emit_jump(ic, ic->break_stack[ic->nr_break - 1]);
+		break;
+	case NODE_CONTINUE:
+		if (!ic->nr_continue)
+			BUG("continue has nowhere to jump. continue stack 0 elements");
+
+		ir_emit_jump(ic, ic->continue_stack[ic->nr_continue - 1]);
 		break;
 	default:
 		die("unhandled stmt in IR lowering: %d", node->type);
