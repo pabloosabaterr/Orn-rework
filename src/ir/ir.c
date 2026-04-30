@@ -6,7 +6,7 @@
 #include "semantic/semantic.h"
 #include "memory/wrapper.h"
 #include "semantic/type.h"
-#include <assert.h>
+#include "utils/log.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -215,7 +215,7 @@ static size_t ir_type_alignof(struct ir_type *t)
 	case IR_FN:
 		return 8;
 	default:
-		assert(0 && "unknown align for type at ir_type_alignof()");
+		BUG("unknown align for type at ir_type_alignof()");
 		return 1;
 	}
 }
@@ -722,7 +722,8 @@ static struct ir_operand *ir_emit_const_float(struct ir_context *ic, double val,
 
 static struct ir_operand *lower_lvalue(struct ast_node *node)
 {
-	assert(node->rsym->ir_slot);
+	if (!node->rsym->ir_slot)
+		BUG("node must carry its slot");
 	switch (node->type) {
 	case NODE_ID:
 		return node->rsym->ir_slot;
@@ -921,7 +922,10 @@ static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *nod
 			return ir_emit_fn_ref(ic, sym);
 
 		slot = node->rsym->ir_slot;
-		assert(slot && "id symbol should carry its slot");
+
+		if (!slot)
+			BUG("id symbol must carry its slot");
+
 		return ir_emit_load(ic, slot);
 	}
 	case NODE_CALL: {
@@ -951,8 +955,10 @@ static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *nod
 			struct ir_type *type = ir_sem_type_lowering(ic, parent->type);
 			struct ir_operand *tag, *index, *ptr;
 
+			if (!ic->current_slot)
+				BUG("namespace must carry current slot");
+
 			/* Tag */
-			assert(ic->current_slot);
 			tag = ir_emit_const_int(ic, member->enum_member.val, ic->t_i32);
 			index = ir_emit_const_int(ic, 0, ic->t_i32);
 			ptr = ir_emit_gep(ic, ic->current_slot, index, ic->t_i32);
@@ -1152,7 +1158,8 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 		struct ir_operand *slot, *start, *cur, *end, *cmp;
 		struct ir_operand *prev_val, *one, *res;
 
-		assert(range->binary.type == OP_RANGE);
+		if (range->binary.type != OP_RANGE)
+			BUG("for loops binaries must be range bin");
 
 		type = ir_sem_type_lowering(ic, node->rsym->type);
 
@@ -1287,7 +1294,9 @@ static void lower_fn(struct ir_context *ic, struct ast_node *node)
 	size_t i;
 	struct symbol *sym = node->rsym;
 
-	assert(node->fn_dec.body);
+	if (!node->fn_dec.body)
+		BUG("bodyless function");
+
 	ir_build_fn(ic, node);
 
 	for (i = 0; i < node->fn_dec.nr_param; i++) {
