@@ -10,6 +10,9 @@ all:
 run: all
 	./build/$(NAME) $(ARGS)
 
+debug: DFLAGS += -g -O0
+debug: clean all
+
 PROVE = prove
 T = $(wildcard tests/t[0-9]*.sh)
 

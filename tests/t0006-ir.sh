@@ -473,4 +473,126 @@ test_expect_success 'enum member as expression' '
 	test_cmp expect actual
 '
 
+test_expect_success 'struct field assignment' '
+	cat >input.orn <<-\EOF &&
+	struct A { y: int; b: int; }
+	fn foo() {
+		let a: A = A { y: 1, b: 2 };
+		a.y = 3;
+	}
+	EOF
+	cat >expect <<-\EOF &&
+	fn foo() -> void {
+	entry:
+	    %0 = alloc struct
+	    %1 = const i32 0
+	    %2 = gep i32 %0, %1
+	    %3 = const i32 1
+	    store i32 %3, %2
+	    %4 = const i32 1
+	    %5 = gep i32 %0, %4
+	    %6 = const i32 2
+	    store i32 %6, %5
+	    %7 = const i32 0
+	    %8 = gep i32 %0, %7
+	    %9 = const i32 3
+	    store i32 %9, %8
+	}
+
+	Program compiled with 0 errors
+	EOF
+	"$ORN" --dump-ir input.orn >actual &&
+	test_cmp expect actual
+'
+
+test_expect_success 'array index assignement' '
+	cat >input.orn <<-\EOF &&
+	fn foo() {
+		let b: [int; 3] = [1, 2, 3];
+		b[0] = 4;
+	}
+	EOF
+	cat >expect <<-\EOF &&
+	fn foo() -> void {
+	entry:
+	    %0 = alloc arr
+	    %1 = const i32 0
+	    %2 = gep i32 %0, %1
+	    %3 = const i32 1
+	    store i32 %3, %2
+	    %4 = const i32 1
+	    %5 = gep i32 %0, %4
+	    %6 = const i32 2
+	    store i32 %6, %5
+	    %7 = const i32 2
+	    %8 = gep i32 %0, %7
+	    %9 = const i32 3
+	    store i32 %9, %8
+	    %10 = const i32 0
+	    %11 = gep i32 %0, %10
+	    %12 = const i32 4
+	    store i32 %12, %11
+	}
+
+	Program compiled with 0 errors
+	EOF
+	"$ORN" --dump-ir input.orn >actual &&
+	test_cmp expect actual
+'
+
+test_expect_success 'addr' '
+	cat >input.orn <<-\EOF &&
+	struct B { x: int; }
+	fn foo() {
+		let a: B = B { x: 10 };
+		let p: *int = &a.x;
+	}
+	EOF
+	cat >expect <<-\EOF &&
+	fn foo() -> void {
+	entry:
+	    %0 = alloc struct
+	    %1 = const i32 0
+	    %2 = gep i32 %0, %1
+	    %3 = const i32 10
+	    store i32 %3, %2
+	    %4 = alloc ptr
+	    %5 = const i32 0
+	    %6 = gep ptr %0, %5
+	    store ptr %6, %4
+	}
+
+	Program compiled with 0 errors
+	EOF
+	"$ORN" --dump-ir input.orn >actual &&
+	test_cmp expect actual
+'
+
+test_expect_success 'deref asssign' '
+	cat >input.orn <<-\EOF &&
+	fn test_deref() {
+		let x: int = 42;
+		let p: *int = &x;
+		*p = 99;
+	}
+	EOF
+	cat >expect <<-\EOF &&
+	fn test_deref() -> void {
+	entry:
+	    %0 = alloc ptr
+	    %1 = const i32 42
+	    store i32 %1, %0
+	    %2 = alloc ptr
+	    store ptr %0, %2
+	    %3 = load i32 %2
+	    %4 = const i32 99
+	    store i32 %4, %3
+	}
+
+	Program compiled with 0 errors
+	EOF
+	"$ORN" --dump-ir input.orn >actual &&
+	test_cmp expect actual
+'
+
 test_done
