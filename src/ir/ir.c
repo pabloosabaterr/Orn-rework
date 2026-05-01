@@ -49,8 +49,12 @@ static enum ir_op ast_op_to_ir(enum op_type op)
 		return IR_LE;
 	case OP_GE:
 		return IR_GE;
+	case OP_AND:
+		return IR_AND;
+	case OP_OR:
+		return IR_OR;
 	default:
-		die("unhandled op in ast_op_to_ir: %d", op);
+		BUG("unhandled op in ast_op_to_ir: %d", op);
 	}
 }
 
@@ -68,7 +72,7 @@ static enum op_type assign_to_binop(enum op_type op)
 	case OP_MODEQ:
 		return OP_MOD;
 	default:
-		die("unhandled compound assign: %d", op);
+		BUG("unhandled compound assign: %d", op);
 	}
 }
 
@@ -253,7 +257,7 @@ static size_t ir_type_sizeof(struct ir_type *t)
 		return offset;
 	}
 	default:
-		die("unknown sizeof at ir_type_sizeof()");
+		BUG("unknown sizeof at ir_type_sizeof()");
 	}
 }
 
@@ -886,9 +890,30 @@ static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *nod
 	}
 	case NODE_BINARY: {
 		struct ir_operand *lhs = lower_expr(ic, node->binary.left);
-		struct ir_operand *rhs = lower_expr(ic, node->binary.right);
+		struct ir_operand *rhs;
 		struct ir_type *res = ir_sem_type_lowering(ic, node->rtype);
 		enum ir_op op = ast_op_to_ir(node->binary.type);
+		struct ir_block *then = ic->current_block;
+
+		/*
+		 * AND & OR are short-circuit need to check left side only
+		 *
+		 * - AND: only if left is true will check right
+		 * - OR: if left is true will ignore right
+		 */
+		if (op == IR_AND) {
+			struct ir_block *right_expr_block = ir_build_block(ic, "rhs");
+			struct ir_block *bin_merge = ir_build_block(ic, "bin_merge");
+			ir_emit_cjump(ic, lhs, right_expr_block, bin_merge);
+			ir_set_block(ic, right_expr_block);
+			rhs =lower_expr(ic, node->binary.right);
+			ir_emit_cjump(ic, rhs, then,bin_merge);
+			return NULL;
+		} else if (op == IR_OR) {
+
+		}
+
+		rhs = lower_expr(ic, node->binary.right);
 
 		if (!is_cmp_op(op)) {
 			if (lhs->type != res)
@@ -1142,7 +1167,10 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 		struct ir_block *merge = ir_create_block(ic, "merge");
 
 		for (i = 0; i < node->if_stmt.nr_branch; i++) {
-			struct ir_block *then = ir_build_block(ic, "then");
+			/*
+			 * Same as merge block
+			 */
+			struct ir_block *then = ir_create_block(ic, "then");
 			struct ir_block *next;
 
 			if (i + 1 < node->if_stmt.nr_branch)
@@ -1152,7 +1180,24 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 			else
 				next = merge;
 
+			/*
+			 * Set then block as current without been appended so
+			 * condition expression can pivot with it.
+			 */
+			ir_set_block(ic, then);
+
 			struct ir_operand *cond = lower_expr(ic, node->if_stmt.conds[i]);
+
+			/*
+			 * Append 'then' block after lowering the condition so
+			 * if the condition is an AND | OR the shor-circuit blocks
+			 * will be appended before the 'then' block
+			 */
+			ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_fn->blocks,
+					 ic->current_fn->nr_block + 1,
+					 ic->current_fn->alloc_block);
+			ic->current_fn->blocks[ic->current_fn->nr_block++] = then;
+
 			ir_emit_cjump(ic, cond, then, next);
 
 			ir_set_block(ic, then);
