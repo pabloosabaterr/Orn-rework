@@ -1134,6 +1134,32 @@ static struct type *check_call(struct semantic_context *sc, struct ast_node *nod
 		return sc->t_err;
 
 	if (callee->kind != TY_FN) {
+		struct symbol *sym = node->call.callee->rsym;
+		if (sym && sym->kind == SYM_ENUM_MEMBER) {
+			struct ast_node *member_node = sym->node;
+			if (node->call.nr_arg != member_node->enum_member.nr_assoc) {
+				diag_emit(&sc->cc->diag, ERROR,
+					  loc_from_token(sc, node->tok),
+					  "enum variant expects %zu fields but got %zu",
+					  member_node->enum_member.nr_assoc,
+					  node->call.nr_arg);
+				return sc->t_err;
+			}
+			for (i = 0; i < node->call.nr_arg; i++) {
+				struct type *arg = check_expr(sc, node->call.args[i]);
+				struct type *expected = member_node->enum_member.assocs[i]->rtype;
+				if (arg == sc->t_err)
+					continue;
+				if (arg != expected)
+					diag_emit(&sc->cc->diag, ERROR,
+						  loc_from_token(sc, node->call.args[i]->tok),
+						  "argument %zu: expected '%s' but got '%s'",
+						  i + 1, type_name(expected),
+						  type_name(arg));
+			}
+			return sym->enum_member.parent->type;
+		}
+
 		diag_emit(&sc->cc->diag, ERROR, loc_from_token(sc, node->tok),
 			  "calling non-function");
 		return sc->t_err;
@@ -1520,8 +1546,16 @@ static void check_return(struct semantic_context *sc, struct ast_node *node)
 	if (node->return_stmt.expr) {
 		if (expected->kind == TY_ENUM || expected->kind == TY_STRUCT)
 			sc->expected_sym = expected->named.dec;
+
 		ret = check_expr(sc, node->return_stmt.expr);
 		sc->expected_sym = NULL;
+
+		if (node->return_stmt.expr->type == NODE_ID &&
+		    !node->return_stmt.expr->rsym->var.is_init)
+			diag_emit(&sc->cc->diag, ERROR,
+				  loc_from_token(sc, node->return_stmt.expr->tok),
+				  "variables being returned must be initialized");
+
 		if (ret != sc->t_err && ret != expected)
 			diag_emit(&sc->cc->diag, ERROR, loc_from_token(sc, node->tok),
 				  "return type mismatch: expected '%s' "
@@ -1769,6 +1803,7 @@ static void check_const(struct semantic_context *sc, struct ast_node *node)
 		sym->type = ann;
 		scope_insert(sc, sc->current, sym);
 		node->rsym = sym;
+		node->rsym->var.is_init = 1;
 	} else {
 		node->rsym->type = ann;
 	}

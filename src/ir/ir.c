@@ -1,12 +1,86 @@
 #include "ir/ir.h"
 #include "compiler.h"
+#include "lexer/lexer.h"
 #include "memory/arena.h"
 #include "parser/ast.h"
 #include "semantic/semantic.h"
 #include "memory/wrapper.h"
 #include "semantic/type.h"
-#include <assert.h>
+#include "utils/log.h"
+#include <stddef.h>
+#include <stdio.h>
 #include <string.h>
+
+static void lower_dec(struct ir_context *ic, struct ast_node *node);
+static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *node);
+
+static enum ir_op ast_op_to_ir(enum op_type op)
+{
+	switch (op) {
+	case OP_ADD:
+		return IR_ADD;
+	case OP_SUB:
+		return IR_SUB;
+	case OP_MUL:
+		return IR_MUL;
+	case OP_DIV:
+		return IR_DIV;
+	case OP_MOD:
+		return IR_MOD;
+	case OP_BIT_AND:
+		return IR_AND;
+	case OP_BIT_OR:
+		return IR_OR;
+	case OP_BIT_XOR:
+		return IR_XOR;
+	case OP_LSHIFT:
+		return IR_SHL;
+	case OP_RSHIFT:
+		return IR_SHR;
+	case OP_EQ:
+		return IR_EQ;
+	case OP_NEQ:
+		return IR_NEQ;
+	case OP_LT:
+		return IR_LT;
+	case OP_GT:
+		return IR_GT;
+	case OP_LE:
+		return IR_LE;
+	case OP_GE:
+		return IR_GE;
+	case OP_AND:
+		return IR_AND;
+	case OP_OR:
+		return IR_OR;
+	default:
+		BUG("unhandled op in ast_op_to_ir: %d", op);
+	}
+}
+
+static enum op_type assign_to_binop(enum op_type op)
+{
+	switch (op) {
+	case OP_PLUSEQ:
+		return OP_ADD;
+	case OP_MINUSEQ:
+		return OP_SUB;
+	case OP_STAREQ:
+		return OP_MUL;
+	case OP_SLASHEQ:
+		return OP_DIV;
+	case OP_MODEQ:
+		return OP_MOD;
+	default:
+		BUG("unhandled compound assign: %d", op);
+	}
+}
+
+static int is_cmp_op(enum ir_op op)
+{
+	return op == IR_EQ || op == IR_NEQ || op == IR_LT || op == IR_GT ||
+	       op == IR_LE || op == IR_GE;
+}
 
 static struct ir_type *prim_new(struct ir_context *ic, enum ir_kind kind)
 {
@@ -146,7 +220,7 @@ static size_t ir_type_alignof(struct ir_type *t)
 	case IR_FN:
 		return 8;
 	default:
-		assert(0 && "unknown align for type at ir_type_alignof()");
+		BUG("unknown align for type at ir_type_alignof()");
 		return 1;
 	}
 }
@@ -183,11 +257,11 @@ static size_t ir_type_sizeof(struct ir_type *t)
 		return offset;
 	}
 	default:
-		die("unknown sizeof at ir_type_sizeof()");
+		BUG("unknown sizeof at ir_type_sizeof()");
 	}
 }
 
-struct ir_type *ir_sem_type_lowering(struct ir_context *ic, struct type *sem_type)
+static struct ir_type *ir_sem_type_lowering(struct ir_context *ic, struct type *sem_type)
 {
 	switch (sem_type->kind) {
 	case TY_BOOL:
@@ -345,7 +419,7 @@ struct ir_type *ir_sem_type_lowering(struct ir_context *ic, struct type *sem_typ
 	}
 }
 
-struct ir_block *ir_build_block(struct ir_context *ic, const char *label)
+static struct ir_block *ir_build_block(struct ir_context *ic, const char *label)
 {
 	struct ir_block *b = arena_alloc(&ic->cc->arena, sizeof(*b));
 	memset(b, 0, sizeof(*b));
@@ -359,12 +433,12 @@ struct ir_block *ir_build_block(struct ir_context *ic, const char *label)
 	return b;
 }
 
-void ir_set_block(struct ir_context *ic, struct ir_block *block)
+static void ir_set_block(struct ir_context *ic, struct ir_block *block)
 {
 	ic->current_block = block;
 }
 
-struct ir_function *ir_build_fn(struct ir_context *ic, struct ast_node *node)
+static struct ir_function *ir_build_fn(struct ir_context *ic, struct ast_node *node)
 {
 	struct ir_function *fn;
 	struct symbol *sym = node->rsym;
@@ -403,7 +477,7 @@ struct ir_function *ir_build_fn(struct ir_context *ic, struct ast_node *node)
 	return fn;
 }
 
-void ir_emit_jump(struct ir_context *ic, struct ir_block *target)
+static void ir_emit_jump(struct ir_context *ic, struct ir_block *target)
 {
 	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
 	memset(inst, 0, sizeof(*inst));
@@ -427,8 +501,8 @@ void ir_emit_jump(struct ir_context *ic, struct ir_block *target)
 	target->preds[target->nr_pred++] = ic->current_block;
 }
 
-void ir_emit_cjump(struct ir_context *ic, struct ir_operand *cond,
-		   struct ir_block *then_b, struct ir_block *else_b)
+static void ir_emit_cjump(struct ir_context *ic, struct ir_operand *cond,
+			  struct ir_block *then_b, struct ir_block *else_b)
 {
 	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
 	memset(inst, 0, sizeof(*inst));
@@ -459,8 +533,8 @@ void ir_emit_cjump(struct ir_context *ic, struct ir_operand *cond,
 	else_b->preds[else_b->nr_pred++] = ic->current_block;
 }
 
-struct ir_operand *ir_emit_const_int(struct ir_context *ic, long long val,
-				     struct ir_type *type)
+static struct ir_operand *ir_emit_const_int(struct ir_context *ic, long long val,
+					    struct ir_type *type)
 {
 	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
 	memset(inst, 0, sizeof(*inst));
@@ -483,7 +557,7 @@ struct ir_operand *ir_emit_const_int(struct ir_context *ic, long long val,
 	return inst->res;
 }
 
-void ir_emit_ret(struct ir_context *ic, struct ir_operand *val)
+static void ir_emit_ret(struct ir_context *ic, struct ir_operand *val)
 {
 	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
 	memset(inst, 0, sizeof(*inst));
@@ -504,15 +578,561 @@ void ir_emit_ret(struct ir_context *ic, struct ir_operand *val)
 	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
 }
 
+static struct ir_operand *ir_emit_cast(struct ir_context *ic,
+				       struct ir_operand *operand,
+				       struct ir_type *type)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = IR_CAST;
+	inst->parent = ic->current_block;
+
+	inst->res = arena_alloc(&ic->cc->arena, sizeof(*inst->res));
+	inst->res->sid = ic->next_id++;
+	inst->res->type = type;
+	inst->res->def = inst;
+
+	inst->operands = arena_alloc(&ic->cc->arena, sizeof(*inst->operands));
+	inst->operands[0] = operand;
+	inst->nr_operand = 1;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+
+	return inst->res;
+}
+
+static struct ir_operand *ir_emit_binop(struct ir_context *ic, enum ir_op op,
+					struct ir_operand *lhs, struct ir_operand *rhs,
+					struct ir_type *res_type)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = op;
+	inst->parent = ic->current_block;
+
+	inst->res = arena_alloc(&ic->cc->arena, sizeof(*inst->res));
+	inst->res->sid = ic->next_id++;
+	inst->res->type = res_type;
+	inst->res->def = inst;
+
+	inst->operands = arena_alloc(&ic->cc->arena, sizeof(*inst->operands) * 2);
+	inst->operands[0] = lhs;
+	inst->operands[1] = rhs;
+	inst->nr_operand = 2;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+
+	return inst->res;
+}
+
+static struct ir_operand *ir_emit_alloc(struct ir_context *ic, struct ir_type *type)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = IR_ALLOC;
+	inst->parent = ic->current_block;
+
+	inst->res = arena_alloc(&ic->cc->arena, sizeof(*inst->res));
+	inst->res->sid = ic->next_id++;
+	inst->res->type = type;
+	inst->res->def = inst;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+
+	return inst->res;
+}
+
+static struct ir_operand *ir_emit_load(struct ir_context *ic,
+				       struct ir_operand *operand)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = IR_LOAD;
+	inst->parent = ic->current_block;
+
+	inst->res = arena_alloc(&ic->cc->arena, sizeof(*inst->res));
+	inst->res->sid = ic->next_id++;
+	inst->res->type = operand->type;
+	inst->res->def = inst;
+
+	inst->operands = arena_alloc(&ic->cc->arena, sizeof(*inst->operands));
+	inst->operands[0] = operand;
+	inst->nr_operand = 1;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+
+	return inst->res;
+}
+
+static void ir_emit_store(struct ir_context *ic, struct ir_operand *ptr,
+			  struct ir_operand *val)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = IR_STORE;
+	inst->parent = ic->current_block;
+	inst->res = NULL;
+
+	inst->operands = arena_alloc(&ic->cc->arena,
+				     sizeof(*inst->operands) * 2);
+	inst->operands[0] = ptr;
+	inst->operands[1] = val;
+	inst->nr_operand = 2;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+}
+
+static struct ir_operand *ir_emit_const_float(struct ir_context *ic, double val, struct ir_type *type)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = IR_CONST;
+	inst->parent = ic->current_block;
+
+	inst->res = arena_alloc(&ic->cc->arena, sizeof(*inst->res));
+	inst->res->sid = ic->next_id++;
+	inst->res->type = type;
+	inst->res->def = inst;
+
+	inst->fimm = val;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+
+	return inst->res;
+}
+
+static struct ir_operand *ir_emit_gep(struct ir_context *ic,
+				      struct ir_operand *base,
+				      struct ir_operand *index,
+				      struct ir_type *type)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = IR_GEP;
+	inst->parent = ic->current_block;
+
+	inst->res = arena_alloc(&ic->cc->arena, sizeof(*inst->res));
+	inst->res->sid = ic->next_id++;
+	inst->res->type = type;
+
+	inst->operands = arena_alloc(&ic->cc->arena, sizeof(*inst->operands) * 2);
+	inst->operands[0] = base;
+	inst->operands[1] = index;
+	inst->nr_operand = 2;
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+
+	return inst->res;
+}
+
+/*
+ * Returns the pointer so callers can store in it.
+ */
+static struct ir_operand *lower_lvalue(struct ir_context *ic, struct ast_node *node)
+{
+	switch (node->type) {
+	case NODE_ID:
+		if (!node->rsym->ir_slot)
+			BUG("node must carry its slot");
+		return node->rsym->ir_slot;
+	case NODE_MEMBER: {
+		struct ir_operand *base = lower_lvalue(ic, node->member.left);
+		struct ir_operand *index = ir_emit_const_int(ic, node->rsym->field.index, ic->t_i32);
+		struct ir_type *type = ir_sem_type_lowering(ic, node->rtype);
+		return ir_emit_gep(ic, base, index, type);
+	}
+	case NODE_INDEX: {
+		struct ir_operand *base = lower_lvalue(ic, node->index.obj);
+		struct ir_operand *index = lower_expr(ic, node->index.idx);
+		struct ir_type *type = base->type->arr.elem;
+		return ir_emit_gep(ic, base, index, type);
+	}
+	case NODE_UNARY: {
+		if (node->unary.type == OP_DEREF) {
+			struct ir_operand *ptr = lower_expr(ic, node->unary.operand);
+			/*
+			 * The pointer's type is *T but lvalue slot carries
+			 * the pointee type T, so unwrap one level.
+			 */
+			ptr->type = ptr->type->ptr.pointee;
+			return ptr;
+		}
+		BUG("unhandled lvalue unary");
+	}
+	default:
+		BUG("unhandled lvalue");
+	}
+}
+
+static struct ir_operand *ir_emit_fn_ref(struct ir_context *ic, struct symbol *sym)
+{
+	struct ir_operand *op = arena_alloc(&ic->cc->arena, sizeof(*op));
+	memset(op, 0, sizeof(*op));
+	op->type = ir_sem_type_lowering(ic, sym->type);
+	/*
+	 * For function name when object dumping.
+	 */
+	op->sym = sym;
+	return op;
+}
+
+static struct ir_operand *ir_emit_call(struct ir_context *ic,
+				       struct ir_operand *callee,
+				       struct ir_operand **args,
+				       size_t nr_args,
+				       struct ir_type *ret)
+{
+	struct ir_inst *inst = arena_alloc(&ic->cc->arena, sizeof(*inst));
+	size_t i;
+
+	memset(inst, 0, sizeof(*inst));
+
+	inst->op = IR_CALL;
+	inst->parent = ic->current_block;
+
+	if (ret->kind != IR_VOID) {
+		inst->res = arena_alloc(&ic->cc->arena, sizeof(*inst->res));
+		inst->res->sid = ic->next_id++;
+		inst->res->type = ret;
+		inst->res->def = inst;
+	}
+
+	inst->nr_operand = nr_args + 1;
+	inst->operands = arena_alloc(&ic->cc->arena,
+				     sizeof(*inst->operands) * inst->nr_operand);
+	inst->operands[0] = callee;
+	for (i = 0; i < nr_args; i++)
+		inst->operands[i + 1] = args[i];
+
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_block->insts,
+			 ic->current_block->nr_inst + 1,
+			 ic->current_block->alloc_inst);
+	ic->current_block->insts[ic->current_block->nr_inst++] = inst;
+
+	return inst->res;
+}
+
 static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *node)
 {
 	switch (node->type) {
 	case NODE_INT:
 		return ir_emit_const_int(ic, node->lit_int.val,
 					 ir_sem_type_lowering(ic, node->rtype));
-	default:
-		die("unhandled expr in IR lowering: %d", node->type);
+	case NODE_BOOL:
+		return ir_emit_const_int(ic, node->lit_bool.val,
+					 ir_sem_type_lowering(ic, node->rtype));
+	case NODE_CHAR:
+		return ir_emit_const_int(ic, (long long)node->lit_char.val[0],
+					 ir_sem_type_lowering(ic, node->rtype));
+	case NODE_NULL:
+		return ir_emit_const_int(ic, 0, ir_sem_type_lowering(ic, node->rtype));
+	case NODE_FLOATING:
+		return ir_emit_const_float(ic, node->lit_floating.val,
+					   ir_sem_type_lowering(ic, node->rtype));
+	case NODE_ARRAY_INIT: {
+		struct ir_type *arr_type = ir_sem_type_lowering(ic, node->rtype);
+		struct ir_type *elem_type = arr_type->arr.elem;
+		size_t i;
+
+		for (i = 0; i < node->list.nr_item; i++) {
+			struct ir_operand *idx = ir_emit_const_int(ic, i, ic->t_i32);
+			struct ir_operand *ptr = ir_emit_gep(ic, ic->current_slot, idx, elem_type);
+			struct ir_operand *val = lower_expr(ic, node->list.items[i]);
+			ir_emit_store(ic, ptr, val);
+		}
+
+		return ic->current_slot;
 	}
+	case NODE_FIELD_INIT:
+		return lower_expr(ic, node->field_init.val);
+	case NODE_STRUCT_INIT: {
+		size_t i;
+		struct ir_type *struct_type = ir_sem_type_lowering(ic, node->rtype);
+
+		for (i = 0; i < node->list.nr_item; i++) {
+			struct ir_operand *idx = ir_emit_const_int(ic, i, ic->t_i32);
+			struct ir_operand *ptr = ir_emit_gep(ic,
+							     ic->current_slot,
+							     idx, struct_type->obj.fields[i]);
+			struct ir_operand *val = lower_expr(ic, node->list.items[i]);
+			ir_emit_store(ic, ptr, val);
+		}
+
+		return ic->current_slot;
+	}
+	case NODE_BINARY: {
+		struct ir_operand *lhs = lower_expr(ic, node->binary.left);
+		struct ir_operand *rhs;
+		struct ir_type *res = ir_sem_type_lowering(ic, node->rtype);
+		enum ir_op op = ast_op_to_ir(node->binary.type);
+		struct ir_block *then = ic->current_block;
+
+		/*
+		 * AND & OR are short-circuit need to check left side only
+		 *
+		 * - AND: only if left is true will check right
+		 * - OR: if left is true will ignore right
+		 */
+		if (op == IR_AND) {
+			struct ir_block *right_expr_block = ir_build_block(ic, "rhs");
+			struct ir_block *bin_merge = ir_build_block(ic, "bin_merge");
+			ir_emit_cjump(ic, lhs, right_expr_block, bin_merge);
+			ir_set_block(ic, right_expr_block);
+			rhs =lower_expr(ic, node->binary.right);
+			ir_emit_cjump(ic, rhs, then,bin_merge);
+			return NULL;
+		} else if (op == IR_OR) {
+
+		}
+
+		rhs = lower_expr(ic, node->binary.right);
+
+		if (!is_cmp_op(op)) {
+			if (lhs->type != res)
+				lhs = ir_emit_cast(ic, lhs, res);
+			if (rhs->type != res)
+				rhs = ir_emit_cast(ic, rhs, res);
+		}
+
+		return ir_emit_binop(ic, op, lhs, rhs, res);
+	}
+	case NODE_ASSIGN: {
+		struct ir_operand *slot = lower_lvalue(ic, node->assign.target);
+		struct ir_operand *val = lower_expr(ic, node->assign.val);
+
+		/*
+		 * Compund assignments need to load the previous val, make the
+		 * operation and then store it.
+		 */
+		if (node->assign.type != OP_ASSIGN) {
+			struct ir_operand *prev_val = ir_emit_load(ic, slot);
+			val = ir_emit_binop(ic, ast_op_to_ir(assign_to_binop(node->assign.type)),
+					    prev_val, val, prev_val->type);
+		}
+
+		if (val->type != slot->type)
+			val = ir_emit_cast(ic, val, slot->type);
+
+		ir_emit_store(ic, slot, val);
+		return val;
+	}
+	case NODE_UNARY: {
+		struct ir_type *res_type = ir_sem_type_lowering(ic, node->rtype);
+
+		switch (node->unary.type) {
+		case OP_NEG: {
+			struct ir_operand *x = lower_expr(ic, node->unary.operand);
+			struct ir_operand *zero = ir_emit_const_int(ic, 0, x->type);
+			return ir_emit_binop(ic, IR_SUB, zero, x, res_type);
+		}
+		case OP_BIT_NOT: {
+			struct ir_operand *x = lower_expr(ic, node->unary.operand);
+			struct ir_operand *ones = ir_emit_const_int(ic, -1, x->type);
+			return ir_emit_binop(ic, IR_XOR, x, ones, res_type);
+		}
+		case OP_NOT: {
+			struct ir_operand *x = lower_expr(ic, node->unary.operand);
+			struct ir_operand *zero = ir_emit_const_int(ic, 0, x->type);
+			return ir_emit_binop(ic, IR_EQ, x, zero, ic->t_i1);
+		}
+		case OP_DEREF: {
+			struct ir_operand *ptr = lower_expr(ic, node->unary.operand);
+			return ir_emit_load(ic, ptr);
+		}
+		case OP_ADDR: {
+			struct ir_operand *addr = lower_lvalue(ic, node->unary.operand);
+			addr->type = res_type;
+			return addr;
+		}
+		default:
+			BUG("unhandled unary op in IR lowering: %d", node->unary.type);
+		}
+	}
+	case NODE_ID: {
+		struct symbol *sym = node->rsym;
+		struct ir_operand *slot;
+
+		if (sym->kind == SYM_FN)
+			return ir_emit_fn_ref(ic, sym);
+
+		slot = node->rsym->ir_slot;
+
+		if (!slot)
+			BUG("id symbol must carry its slot");
+
+		return ir_emit_load(ic, slot);
+	}
+	case NODE_CALL: {
+		struct ir_operand *callee;
+		struct ir_type *ret;
+		struct ir_operand **args;
+		size_t i;
+
+		/*
+		 * Tagged union constructor -> Enum::member(x)
+		 *
+		 * The callee is a namespace node and its rsym is the member
+		 * symbol. It is not a function call but it shares the node.
+		 *
+		 * Builds the tagged union:
+		 *
+		 * 1. alloc the enum struct { i32 tag, [T;N] payload }.
+		 *                                ^^^        ^^^^^^^
+		 *                                 0            1
+		 * 2. store the tag.
+		 * 3. store each argument into the payload.
+		 * 4. load and return the whole val.
+		 */
+		if (node->call.callee->rsym->kind == SYM_ENUM_MEMBER) {
+			struct symbol *member = node->call.callee->rsym;
+			struct symbol *parent = member->enum_member.parent;
+			struct ir_type *type = ir_sem_type_lowering(ic, parent->type);
+			struct ir_operand *tag, *index, *ptr;
+
+			if (!ic->current_slot)
+				BUG("namespace must carry current slot");
+
+			/* Tag */
+			tag = ir_emit_const_int(ic, member->enum_member.val, ic->t_i32);
+			index = ir_emit_const_int(ic, 0, ic->t_i32);
+			ptr = ir_emit_gep(ic, ic->current_slot, index, ic->t_i32);
+			ir_emit_store(ic, ptr, tag);
+
+			/* payload */
+			if (node->call.nr_arg > 0) {
+				struct ir_operand *pay_idx;
+				struct ir_operand *pay_ptr;
+				size_t i;
+
+				pay_idx = ir_emit_const_int(ic, 1, ic->t_i32);
+				pay_ptr = ir_emit_gep(ic, ic->current_slot, pay_idx,
+						      type->obj.fields[1]);
+				for (i = 0; i < node->call.nr_arg; i++) {
+					struct ir_operand *arg;
+					struct ir_operand *elem_idx;
+					struct ir_operand *elem_ptr;
+
+					arg = lower_expr(ic, node->call.args[i]);
+					elem_idx = ir_emit_const_int(ic, (long long)i, ic->t_i32);
+					elem_ptr = ir_emit_gep(ic, pay_ptr, elem_idx,
+							       arg->type);
+					ir_emit_store(ic, elem_ptr, arg);
+				}
+			}
+
+			return ic->current_slot;
+		}
+
+		callee = lower_expr(ic, node->call.callee);
+		ret = callee->type->fn.ret;
+
+		args = arena_alloc(&ic->cc->arena,
+				   sizeof(*args) * node->call.nr_arg);
+		for (i = 0; i < node->call.nr_arg; i++)
+			args[i] = lower_expr(ic, node->call.args[i]);
+
+		return ir_emit_call(ic, callee, args, node->call.nr_arg, ret);
+	}
+	case NODE_INDEX: {
+		struct ir_operand *base = lower_lvalue(ic, node->index.obj);
+		struct ir_operand *index = lower_expr(ic, node->index.idx);
+		struct ir_type *type = base->type->arr.elem;
+
+		struct ir_operand *ptr = ir_emit_gep(ic, base, index, type);
+		return ir_emit_load(ic, ptr);
+	}
+	case NODE_MEMBER: {
+		struct ir_operand *base = lower_lvalue(ic, node->member.left);
+		struct ir_operand *idx = ir_emit_const_int(ic,
+							   node->rsym->field.index,
+							   ic->t_i32);
+		struct ir_type *type = ir_sem_type_lowering(ic, node->rtype);
+		struct ir_operand *ptr = ir_emit_gep(ic, base, idx, type);
+		return ir_emit_load(ic, ptr);
+	}
+	case NODE_NAMESPACE: {
+		struct symbol *sym = node->rsym;
+
+		/*
+		 * Even if the enum member doesn't carry payload if the enum
+		 * has a member that does it, is still needed to build the
+		 * tagged union.
+		 */
+		if (ic->current_slot && ic->current_slot->type->kind == IR_STRUCT) {
+			struct ir_operand *tag, *index, *ptr;
+
+			tag = ir_emit_const_int(ic, sym->enum_member.val, ic->t_i32);
+			index = ir_emit_const_int(ic, 0, ic->t_i32);
+			ptr = ir_emit_gep(ic, ic->current_slot, index, ic->t_i32);
+			ir_emit_store(ic, ptr, tag);
+			return ic->current_slot;
+		}
+
+		if (ic->current_slot) {
+			struct ir_operand *val;
+
+			val = ir_emit_const_int(ic, sym->enum_member.val, ic->t_i32);
+			ir_emit_store(ic, ic->current_slot, val);
+			return ic->current_slot;
+		}
+
+		return ir_emit_const_int(ic, sym->enum_member.val, ic->t_i32);
+	}
+	default:
+		BUG("unhandled expr in IR lowering: %d", node->type);
+	}
+}
+
+/*
+ * Only creates the block rather than creating it and appending it to
+ * the blocks like ir_build_block() does
+ */
+static struct ir_block *ir_create_block(struct ir_context *ic, const char *lab)
+{
+	struct ir_block *block = arena_alloc(&ic->cc->arena, sizeof(*block));
+	memset(block, 0, sizeof(*block));
+	block->label = lab;
+	return block;
+}
+
+/*
+ * Use it to check where there is an statement before an incoditional jump
+ * to avoid having unrecheable jumps.
+ */
+static int is_block_terminated(struct ir_block *block)
+{
+	if (block->nr_inst == 0)
+		return 0;
+	enum ir_op op = block->insts[block->nr_inst - 1]->op;
+	return op == IR_JUMP || op == IR_CJUMP || op == IR_RET;
 }
 
 static void lower_stmt(struct ir_context *ic, struct ast_node *node)
@@ -525,17 +1145,289 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 		ir_emit_ret(ic, val);
 		break;
 	}
+	case NODE_INCDEC: {
+		struct ir_operand *slot = lower_lvalue(ic, node->incdec.target);
+		struct ir_operand *prev_val = ir_emit_load(ic, slot);
+
+		struct ir_operand *one = ir_emit_const_int(ic, 1, slot->type);
+		enum ir_op op = node->incdec.type == OP_INC ? IR_ADD : IR_SUB;
+
+		struct ir_operand *res = ir_emit_binop(ic, op, prev_val, one,
+						       slot->type);
+		ir_emit_store(ic, slot, res);
+		break;
+	}
+	case NODE_IF: {
+		size_t i;
+
+		/*
+		 * Manually create the merge block to avoid having it appended
+		 * before the branch blocks
+		 */
+		struct ir_block *merge = ir_create_block(ic, "merge");
+
+		for (i = 0; i < node->if_stmt.nr_branch; i++) {
+			/*
+			 * Same as merge block
+			 */
+			struct ir_block *then = ir_create_block(ic, "then");
+			struct ir_block *next;
+
+			if (i + 1 < node->if_stmt.nr_branch)
+				next = ir_build_block(ic, "elif");
+			else if (node->if_stmt.else_body)
+				next = ir_build_block(ic, "else");
+			else
+				next = merge;
+
+			/*
+			 * Set then block as current without been appended so
+			 * condition expression can pivot with it.
+			 */
+			ir_set_block(ic, then);
+
+			struct ir_operand *cond = lower_expr(ic, node->if_stmt.conds[i]);
+
+			/*
+			 * Append 'then' block after lowering the condition so
+			 * if the condition is an AND | OR the shor-circuit blocks
+			 * will be appended before the 'then' block
+			 */
+			ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_fn->blocks,
+					 ic->current_fn->nr_block + 1,
+					 ic->current_fn->alloc_block);
+			ic->current_fn->blocks[ic->current_fn->nr_block++] = then;
+
+			ir_emit_cjump(ic, cond, then, next);
+
+			ir_set_block(ic, then);
+			lower_stmt(ic, node->if_stmt.bodies[i]);
+			if (!is_block_terminated(ic->current_block))
+				ir_emit_jump(ic, merge);
+
+			ir_set_block(ic, next);
+		}
+
+		if (node->if_stmt.else_body) {
+			lower_stmt(ic, node->if_stmt.else_body);
+			if (!is_block_terminated(ic->current_block))
+				ir_emit_jump(ic, merge);
+		}
+
+		/*
+		 * Append merge block after all the branches
+		 */
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_fn->blocks,
+				 ic->current_fn->nr_block + 1,
+				 ic->current_fn->alloc_block);
+		ic->current_fn->blocks[ic->current_fn->nr_block++] = merge;
+
+		ir_set_block(ic, merge);
+		break;
+	}
+	case NODE_WHILE: {
+		struct ir_block *exit = ir_create_block(ic, "exit");
+		struct ir_block *cond = ir_build_block(ic, "cond");
+		struct ir_block *body = ir_build_block(ic, "body");
+		struct ir_operand *cond_expr;
+
+		/*
+		 * Push to the stack blocks for break and continue to jump to.
+		 */
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->continue_stack,
+				 ic->nr_continue + 1, ic->alloc_continue);
+		ic->continue_stack[ic->nr_continue++] = cond;
+
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->break_stack,
+				 ic->nr_break + 1, ic->alloc_break);
+		ic->break_stack[ic->nr_break++] = exit;
+
+		ir_emit_jump(ic, cond);
+		ir_set_block(ic, cond);
+
+		cond_expr = lower_expr(ic, node->while_stmt.cond);
+
+		ir_emit_cjump(ic, cond_expr, body, exit);
+		ir_set_block(ic, body);
+		lower_stmt(ic, node->while_stmt.body);
+		if (!is_block_terminated(ic->current_block))
+			ir_emit_jump(ic, cond);
+
+		/*
+		 * Pop blocks out the stack once the loop ended.
+		 */
+		ic->nr_break--;
+		ic->nr_continue--;
+
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_fn->blocks,
+				 ic->current_fn->nr_block + 1,
+				 ic->current_fn->alloc_block);
+		ic->current_fn->blocks[ic->current_fn->nr_block++] = exit;
+		ir_set_block(ic, exit);
+		break;
+	}
+	case NODE_FOR: {
+		struct ast_node *range = node->for_stmt.range;
+		struct ir_type *type;
+		struct ir_block *exit, *init, *cond, *body, *it;
+		struct ir_operand *slot, *start, *cur, *end, *cmp;
+		struct ir_operand *prev_val, *one, *res;
+
+		if (range->binary.type != OP_RANGE)
+			BUG("for loops binaries must be range bin");
+
+		type = ir_sem_type_lowering(ic, node->rsym->type);
+
+		exit = ir_create_block(ic, "exit");
+		init = ir_build_block(ic, "init");
+		cond = ir_build_block(ic, "cond");
+		body = ir_build_block(ic, "body");
+		it = ir_build_block(ic, "it");
+
+		/*
+		 * Push to the stack blocks for break and continue to jump to.
+		 */
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->break_stack,
+				 ic->nr_break + 1, ic->alloc_break);
+		ic->break_stack[ic->nr_break++] = exit;
+
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->continue_stack,
+				 ic->nr_continue + 1, ic->alloc_continue);
+		ic->continue_stack[ic->nr_continue++] = init;
+
+		ir_emit_jump(ic, init);
+		ir_set_block(ic, init);
+
+		slot = ir_emit_alloc(ic, type);
+		node->rsym->ir_slot = slot;
+		start = lower_expr(ic, range->binary.left);
+		ir_emit_store(ic, slot, start);
+		ir_emit_jump(ic, cond);
+
+		ir_set_block(ic, cond);
+		cur = ir_emit_load(ic, slot);
+		end = lower_expr(ic, range->binary.right);
+		cmp = ir_emit_binop(ic, IR_LT, cur, end, ic->t_i1);
+		ir_emit_cjump(ic, cmp, body, exit);
+
+		ir_set_block(ic, body);
+		lower_stmt(ic, node->for_stmt.body);
+		if (!is_block_terminated(ic->current_block))
+			ir_emit_jump(ic, it);
+
+		ir_set_block(ic, it);
+		prev_val = ir_emit_load(ic, slot);
+		one = ir_emit_const_int(ic, 1, slot->type);
+		res = ir_emit_binop(ic, IR_ADD, prev_val, one, type);
+		ir_emit_store(ic, slot, res);
+		ir_emit_jump(ic, cond);
+
+		/*
+		 * Pop blocks out the stack once the loop ended.
+		 */
+		ic->nr_break--;
+		ic->nr_continue--;
+
+		ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_fn->blocks,
+				 ic->current_fn->nr_block + 1,
+				 ic->current_fn->alloc_block);
+		ic->current_fn->blocks[ic->current_fn->nr_block++] = exit;
+		ir_set_block(ic, exit);
+		break;
+	}
+	case NODE_BLOCK: {
+		size_t i;
+		for (i = 0; i < node->block.nr; i++)
+			lower_dec(ic, node->block.childs[i]);
+		break;
+	}
 	case NODE_EXPR_STMT:
 		lower_expr(ic, node->expr_stmt.expr);
+		break;
+	case NODE_BREAK:
+		if (!ic->nr_break)
+			BUG("break has nowhere to jump. break stack 0 elements");
+
+		ir_emit_jump(ic, ic->break_stack[ic->nr_break - 1]);
+		break;
+	case NODE_CONTINUE:
+		if (!ic->nr_continue)
+			BUG("continue has nowhere to jump. continue stack 0 elements");
+
+		ir_emit_jump(ic, ic->continue_stack[ic->nr_continue - 1]);
 		break;
 	default:
 		die("unhandled stmt in IR lowering: %d", node->type);
 	}
 }
 
+static int is_enum_init(struct ast_node *init)
+{
+	if (init->type == NODE_NAMESPACE)
+		return init->rsym->kind == SYM_ENUM_MEMBER;
+	if (init->type == NODE_CALL)
+		return init->call.callee->rsym->kind == SYM_ENUM_MEMBER;
+	return 0;
+}
+
 static void lower_dec(struct ir_context *ic, struct ast_node *node)
 {
 	switch (node->type) {
+	case NODE_CONST_DEC:
+	case NODE_LET_DEC: {
+		struct ir_type *type = ir_sem_type_lowering(ic, node->rsym->type);
+		struct ir_operand *slot = ir_emit_alloc(ic, type);
+		struct ast_node *init;
+		struct ir_operand *val;
+
+		node->rsym->ir_slot = slot;
+
+		init = (node->rsym->kind == SYM_CONST) ? node->const_dec.init :
+							 node->let_dec.init;
+
+		if (!init)
+			break;
+
+		if (init->type == NODE_ARRAY_INIT ||
+		    init->type == NODE_STRUCT_INIT ||
+		    is_enum_init(init)) {
+			ic->current_slot = slot;
+			lower_expr(ic, init);
+			ic->current_slot = NULL;
+			break;
+		}
+
+		val = lower_expr(ic, init);
+
+		/*
+		 * All floating point literals are double unless
+		 * specified to be a float, given the case:
+		 *
+		 * let x: float = 3.14;
+		 *
+		 * x is f32, while 3.14 f64. throw a cast so the store
+		 * stores the correct value, optimizations will turn
+		 * the f64 const + f32 cast to f32 const.
+		 */
+		if (val->type != slot->type) {
+			/*
+			 * Null literals are ptr_void 0 but they need
+			 * to adopt the destination ptr type. Instead
+			 * of casting, rewrite the const type since
+			 * the value will always be 0.
+			 */
+			if (val->def->op == IR_CONST &&
+			    val->def->imm == 0 &&
+			    val->type->kind == IR_PTR)
+				val->type = slot->type;
+			else
+				val = ir_emit_cast(ic, val, slot->type);
+		}
+
+		ir_emit_store(ic, slot, val);
+
+		break;
+	}
 	default:
 		lower_stmt(ic, node);
 		break;
@@ -545,9 +1437,19 @@ static void lower_dec(struct ir_context *ic, struct ast_node *node)
 static void lower_fn(struct ir_context *ic, struct ast_node *node)
 {
 	size_t i;
+	struct symbol *sym = node->rsym;
 
-	assert(node->fn_dec.body);
+	if (!node->fn_dec.body)
+		BUG("bodyless function");
+
 	ir_build_fn(ic, node);
+
+	for (i = 0; i < node->fn_dec.nr_param; i++) {
+		struct ir_type *type = ir_sem_type_lowering(ic, sym->fn.params[i]->type);
+		struct ir_operand *slot = ir_emit_alloc(ic, type);
+		ir_emit_store(ic, slot, &ic->current_fn->params[i]);
+		sym->fn.params[i]->ir_slot = slot;
+	}
 
 	for (i = 0; i < node->fn_dec.body->block.nr; i++)
 		lower_dec(ic, node->fn_dec.body->block.childs[i]);
@@ -617,6 +1519,46 @@ static const char *ir_type_str(struct ir_type *t)
 	}
 }
 
+static const char *ir_op_str(enum ir_op op)
+{
+	switch (op) {
+	case IR_ADD:
+		return "add";
+	case IR_SUB:
+		return "sub";
+	case IR_MUL:
+		return "mul";
+	case IR_DIV:
+		return "div";
+	case IR_MOD:
+		return "mod";
+	case IR_AND:
+		return "and";
+	case IR_OR:
+		return "or";
+	case IR_XOR:
+		return "xor";
+	case IR_SHL:
+		return "shl";
+	case IR_SHR:
+		return "shr";
+	case IR_EQ:
+		return "eq";
+	case IR_NEQ:
+		return "neq";
+	case IR_LT:
+		return "lt";
+	case IR_GT:
+		return "gt";
+	case IR_LE:
+		return "le";
+	case IR_GE:
+		return "ge";
+	default:
+		return NULL;
+	}
+}
+
 static void ir_dump_inst(struct ir_inst *inst)
 {
 	printf("    ");
@@ -626,8 +1568,13 @@ static void ir_dump_inst(struct ir_inst *inst)
 
 	switch (inst->op) {
 	case IR_CONST:
-		printf("const %s %lld",
-		       ir_type_str(inst->res->type), inst->imm);
+		if (inst->res->type->kind == IR_F32 ||
+		    inst->res->type->kind == IR_F64)
+			printf("const %s %f", ir_type_str(inst->res->type),
+			       inst->fimm);
+		else
+			printf("const %s %lld", ir_type_str(inst->res->type),
+			       inst->imm);
 		break;
 	case IR_RET:
 		if (inst->nr_operand)
@@ -637,9 +1584,83 @@ static void ir_dump_inst(struct ir_inst *inst)
 		else
 			printf("ret void");
 		break;
-	default:
-		printf("UNKNOWN op=%d", inst->op);
+	case IR_ALLOC:
+		printf("alloc %s", ir_type_str(inst->res->type));
 		break;
+	case IR_LOAD:
+		printf("load %s %%%u",
+		       ir_type_str(inst->res->type),
+		       inst->operands[0]->sid);
+		break;
+	case IR_STORE:
+		printf("store %s %%%u, %%%u",
+		       ir_type_str(inst->operands[1]->type),
+		       inst->operands[1]->sid,
+		       inst->operands[0]->sid);
+		break;
+	case IR_GEP:
+		printf("gep %s %%%u, %%%u",
+		       ir_type_str(inst->res->type),
+		       inst->operands[0]->sid,
+		       inst->operands[1]->sid);
+		break;
+	case IR_JUMP:
+		printf("jump %s",
+		       inst->parent->succs[0]->label);
+		break;
+	case IR_CJUMP:
+		printf("cjump %%%u, %s, %s",
+		       inst->operands[0]->sid,
+		       inst->parent->succs[0]->label,
+		       inst->parent->succs[1]->label);
+		break;
+	case IR_CALL:
+		if (inst->operands[0]->sym)
+			printf("call %.*s(",
+			       (int)inst->operands[0]->sym->tok.len,
+			       inst->operands[0]->sym->tok.lex);
+		else
+			printf("call %%%u(", inst->operands[0]->sid);
+
+		for (size_t i = 1; i < inst->nr_operand; i++) {
+			if (i > 1)
+				printf(", ");
+			printf("%s %%%u",
+			       ir_type_str(inst->operands[i]->type),
+			       inst->operands[i]->sid);
+		}
+		printf(")");
+		break;
+	case IR_PARAM:
+		printf("param %s %lld",
+		       ir_type_str(inst->res->type), inst->imm);
+		break;
+	case IR_PHI:
+		printf("phi %s", ir_type_str(inst->res->type));
+		for (size_t i = 0; i < inst->nr_operand; i++)
+			printf("%s[%%%u, %s]",
+			       i ? ", " : " ",
+			       inst->operands[i]->sid,
+			       inst->parent->preds[i]->label);
+		break;
+	case IR_CAST:
+		printf("cast %s %%%u to %s",
+		       ir_type_str(inst->operands[0]->type),
+		       inst->operands[0]->sid,
+		       ir_type_str(inst->res->type));
+		break;
+	default: {
+		const char *binop;
+		binop = ir_op_str(inst->op);
+		if (binop)
+			printf("%s %s %%%u, %%%u",
+			       binop,
+			       ir_type_str(inst->res->type),
+			       inst->operands[0]->sid,
+			       inst->operands[1]->sid);
+		else
+			printf("UNKNOWN op=%d", inst->op);
+	}
 	}
 
 	printf("\n");

@@ -1104,4 +1104,26 @@ test_expect_success '::Member fails with non-enum type' '
 	test_cmp expect.err err
 '
 
+test_expect_success 'returned variable must be initialized' '
+	cat >input.orn <<-\EOF &&
+	fn foo() -> int {
+		let a: int;
+		ret a;
+	}
+	EOF
+	test_must_fail "$ORN" input.orn >actual 2>err &&
+	cat >expect <<-\EOF &&
+	Program compiled with 1 error
+	EOF
+	cat >expect.err <<-\EOF &&
+	error: variables being returned must be initialized
+	 --> input.orn:3:4
+	   |
+	 3 | ret a;
+	   |     ^
+	EOF
+	test_cmp expect actual &&
+	test_cmp expect.err err
+'
+
 test_done

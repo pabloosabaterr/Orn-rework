@@ -78,11 +78,17 @@ struct ir_operand {
 	unsigned sid;
 	struct ir_type *type;
 	struct ir_inst *def;
+	/*
+	 * Non-NULL for function references and named types.
+	 * Works for having the lexeme for dumping.
+	 */
+	struct symbol *sym;
 };
 
 struct ir_inst {
 	enum ir_op op;
 	long long imm;
+	double fimm;
 	/*
 	 * Output operand; can be NULL.
 	 */
@@ -137,6 +143,29 @@ struct ir_context {
 	struct compiler_context *cc;
 	size_t next_id;
 	struct ir_module *module;
+	/*
+	 * For indexable types (arrs, structs, enums).
+	 * Their initializer has no symbol unline when a variable is assigned
+	 * carries the slot in the symbol and primitive literals return the
+	 * slot of the constant; indexable types need the slot to know where
+	 * to store for each element.
+	 * NULL outside non-indexable type initialization.
+	 */
+	struct ir_operand *current_slot;
+
+	/*
+	 * Break stack for nested loops
+	 */
+	struct ir_block **break_stack;
+	size_t nr_break;
+	size_t alloc_break;
+
+	/*
+	 * Continue stack for nested loops
+	 */
+	struct ir_block **continue_stack;
+	size_t nr_continue;
+	size_t alloc_continue;
 
 	struct ir_function *current_fn;
 	struct ir_block *current_block;

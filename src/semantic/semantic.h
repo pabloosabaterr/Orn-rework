@@ -9,6 +9,7 @@
 struct ast_node;
 struct compiler_context;
 struct scope;
+struct ir_operand;
 
 enum symbol_type {
 	SYM_VAR,
@@ -27,6 +28,7 @@ struct symbol {
 	struct token tok;
 	struct type *type;
 	struct ast_node *node;
+	struct ir_operand *ir_slot;
 	/*
 	 * Aliases can call between them in cycles:
 	 *
