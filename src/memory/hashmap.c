@@ -12,9 +12,14 @@ static void hashmap_grow(struct hashmap *map)
 {
 	size_t old_size = map->size;
 	struct hashmap_entry **old_table = map->table;
-	size_t new_size = old_size * 2;
+	size_t new_size;
 	struct hashmap_entry **new_table;
 	size_t i;
+
+	if (!old_size)
+		new_size = 16;
+	else
+		new_size = old_size * 2;
 
 	new_table = xcalloc(new_size, sizeof(*new_table));
 
