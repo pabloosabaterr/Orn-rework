@@ -1,5 +1,6 @@
 #include "memory/str-buf.h"
 #include "memory/wrapper.h"
+#include "utils/log.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -34,7 +35,11 @@ void str_buf_addf(struct str_buf *sb, const char *fmt, ...)
 
 void str_buf_addstr(struct str_buf *sb, const char *s)
 {
-	size_t len = strlen(s);
+	size_t len;
+	if (!s)
+		die("str_buf_addstr: s must be non-NULL.");
+
+	len = strlen(s);
 	ALLOC_GROW(sb->buf, sb->len + len + 1, sb->size);
 	memcpy(sb->buf + sb->len, s, len);
 	sb->len += len;
@@ -43,8 +48,13 @@ void str_buf_addstr(struct str_buf *sb, const char *s)
 
 char *str_buf_detach(struct str_buf *sb)
 {
-	char *buf = sb->buf;
+	char *buf;
 
+	if (!sb->buf) {
+		sb->buf = xstrdup("");
+	}
+
+	buf = sb->buf;
 	*sb = (struct str_buf)STR_BUF_INIT;
 	return buf;
 }
