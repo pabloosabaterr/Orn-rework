@@ -1,9 +1,9 @@
 #ifndef LOG_H
 #define LOG_H
 
-#include <stdnoreturn.h>
+#include "utils/attrs.h"
 
-noreturn void die(const char *fmt, ...);
-noreturn void BUG(const char *fmt, ...);
+NORETURN void die(const char *fmt, ...) PRINTF_FMT(1, 2);
+NORETURN void BUG(const char *fmt, ...) PRINTF_FMT(1, 2);
 
-#endif
+#endif /* LOG_H */

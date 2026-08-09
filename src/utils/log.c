@@ -1,9 +1,11 @@
 #include "utils/log.h"
+#include "utils/attrs.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-noreturn static void rep_msg(const char *prefix, const char *fmt, va_list ap)
+static NORETURN PRINTF_FMT(2, 0)
+void rep_msg(const char *prefix, const char *fmt, va_list ap)
 {
 	fprintf(stderr, "%s: ", prefix);
 	vfprintf(stderr, fmt, ap);
@@ -14,7 +16,7 @@ noreturn static void rep_msg(const char *prefix, const char *fmt, va_list ap)
 /*
  * Report errors that lead to fatally exit, such as memory alloc failure.
  */
-noreturn void die(const char *fmt, ...)
+void die(const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
@@ -26,7 +28,7 @@ noreturn void die(const char *fmt, ...)
  * Report violations of contracts or expected non-NULL.
  * Use it for assert-like checks.
  */
-noreturn void BUG(const char *fmt, ...)
+void BUG(const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);

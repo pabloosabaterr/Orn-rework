@@ -110,7 +110,7 @@ static void scope_pop(struct semantic_context *sc)
 	sc->current = sc->current->parent;
 }
 
-struct type *type_unalias(struct type *t)
+static struct type *type_unalias(struct type *t)
 {
 	while (t && t->kind == TY_TYPE_ALIAS)
 		t = t->alias.resolved;
@@ -137,7 +137,7 @@ void sem_init(struct semantic_context *sc, struct compiler_context *cc)
 	sc->current = sc->global;
 }
 
-struct type *type_ptr(struct semantic_context *sc, struct type *pointee)
+static struct type *type_ptr(struct semantic_context *sc, struct type *pointee)
 {
 	size_t i;
 	struct type *t;
@@ -157,7 +157,7 @@ struct type *type_ptr(struct semantic_context *sc, struct type *pointee)
 	return t;
 }
 
-struct type *type_arr(struct semantic_context *sc, struct type *elem_type,
+static struct type *type_arr(struct semantic_context *sc, struct type *elem_type,
 		      long long size)
 {
 	size_t i;
@@ -181,7 +181,7 @@ struct type *type_arr(struct semantic_context *sc, struct type *elem_type,
 	return t;
 }
 
-struct type *type_tuple(struct semantic_context *sc, struct type **elems, size_t nr)
+static struct type *type_tuple(struct semantic_context *sc, struct type **elems, size_t nr)
 {
 	size_t i;
 	struct type *t, **e;
@@ -215,7 +215,7 @@ struct type *type_tuple(struct semantic_context *sc, struct type **elems, size_t
 	return t;
 }
 
-struct type *type_fn(struct semantic_context *sc, struct type **params,
+static struct type *type_fn(struct semantic_context *sc, struct type **params,
 		     size_t nr, struct type *ret, unsigned variadic)
 {
 	size_t i;
@@ -580,7 +580,7 @@ static void resolve_enum(struct semantic_context *sc, struct ast_node *node)
 	if (!nr)
 		diag_emit(&sc->cc->diag, ERROR,
 			  loc_from_token(sc, node->tok),
-			  "enum '%.s' is memberless",
+			  "enum '%.*s' is memberless",
 			  (int)node->tok.len, node->tok.lex);
 
 	sym->aggregate.members = arena_alloc(&sc->cc->arena, sizeof(*sym->aggregate.members) * nr);
@@ -600,8 +600,8 @@ static void resolve_enum(struct semantic_context *sc, struct ast_node *node)
 		if (hashmap_get(&sym->aggregate.member_hashmap, h, symbol_cmp, &member_node->tok))
 			diag_emit(&sc->cc->diag, ERROR,
 				  loc_from_token(sc, member_node->tok),
-				  "duplicated member at enum %.s",
-				  member_node->tok.len, member_node->tok.lex);
+				  "duplicated member at enum %.*s",
+				  (int)member_node->tok.len, member_node->tok.lex);
 
 		if (member_node->enum_member.val) {
 			struct ast_node *val = member_node->enum_member.val;
