@@ -80,10 +80,6 @@ enum op_type token_to_op(enum token_type type)
 		return OP_SLASHEQ;
 	case TK_MODEQ:
 		return OP_MODEQ;
-	case TK_INCREMENT:
-		return OP_INC;
-	case TK_DECREMENT:
-		return OP_DEC;
 	default:
 		die("unknown operator token %d", type);
 	}

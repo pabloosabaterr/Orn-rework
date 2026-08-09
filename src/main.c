@@ -1,11 +1,7 @@
 #include "compiler.h"
 #include "diagnostic/diagnostic.h"
-#include "ir/ir.h"
 #include "lexer/lexer.h"
-#include "parser/ast.h"
-#include "parser/parser.h"
 #include "memory/wrapper.h"
-#include "semantic/semantic.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,10 +42,6 @@ int main(int argc, char **argv)
 	struct compiler_context cc;
 	struct compiler_options options = { 0 };
 	struct lexer_context lexer;
-	struct parser_context parser;
-	struct semantic_context sem;
-	struct ir_context ic;
-	struct ast_node *program;
 	char *src = NULL;
 	const char *filename = NULL;
 	int i, ret = 0;
@@ -57,10 +49,10 @@ int main(int argc, char **argv)
 	for (i = 1; i < argc; i++)
 		if (!strcmp(argv[i], "--dump-tokens"))
 			options.dump_tokens = 1;
-		else if (!strcmp(argv[i], "--dump-ast"))
-			options.dump_ast = 1;
-		else if (!strcmp(argv[i], "--dump-ir"))
-			options.dump_ir = 1;
+		else if (!strcmp(argv[i], "--dump-ast") ||
+		         !strcmp(argv[i], "--dump-ir"))
+			die("'%s' is unavailable during the syntax rework",
+			    argv[i]);
 		else if (argv[i][0] == '-')
 			die("unknown option '%s'", argv[i]);
 		else if (!filename)
@@ -70,65 +62,20 @@ int main(int argc, char **argv)
 
 	if (!filename)
 		die("no input file provided");
-	/*
-	 * Dumping the token eats the tokens in the proccess
-	 * and AST dumping need those tokens.
-	 * RFC: Duplicating the lexer context to be able to dump both or keep
-	 * the address of the first token to reset the lexer after dumping it.
-	 */
-	if (options.dump_ast && options.dump_tokens)
-		die("--dump-ast and --dump-tokens cannot live together");
 
 	src = read_file(filename);
 
 	compiler_init(&cc, filename, src, options);
-
 	lexer_init(&lexer, &cc);
 
-	if (options.dump_tokens) {
-		dump_tokens(&lexer);
-		goto report;
-	}
+	dump_tokens(&lexer);
 
-	/* initializing the parser "steals" the first token */
-	parser_init(&parser, &lexer, &cc);
-	program = parser_parse(&parser);
-
-	if (options.dump_ast) {
-		ast_dump(program);
-		goto report;
-	}
-
-	sem_init(&sem, &cc);
-	semantic_analyze(&sem, program);
-
-	/*
-	 * After the semantic pass there is no interest of trying to keep if
-	 * there is an error; any user error should have been already reported
-	 * during the lexer-parser-semantic, IR should only receive correct
-	 * ASTs.
-	 * Errors after that are compiler errors.
-	 */
-	if (diag_has_errors(&cc.diag))
-		goto report;
-
-	ir_init(&ic, &cc);
-
-	if (options.dump_ir) {
-		ir_lower(&ic, program);
-		ir_dump(ic.module);
-		goto report;
-	}
-
-report:
 	diag_flush(&cc.diag, stderr);
 	printf("Program compiled with %d %s\n", cc.diag.nr_error,
 	       cc.diag.nr_error == 1 ? "error" : "errors");
 
 	ret = diag_has_errors(&cc.diag) ? 1 : 0;
 
-	if (!options.dump_tokens)
-		parser_free(&parser);
 	free(src);
 	compiler_free(&cc);
 	return ret;

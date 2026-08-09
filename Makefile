@@ -32,22 +32,17 @@ TARGET = build/$(NAME)
 SRC  = src/main.c
 SRC += src/compiler.c
 SRC += src/diagnostic/diagnostic.c
-SRC += src/ir/ir.c
 SRC += src/lexer/lexer.c
 SRC += src/memory/arena.c
 SRC += src/memory/hashmap.c
 SRC += src/memory/str-buf.c
 SRC += src/memory/wrapper.c
-SRC += src/parser/ast.c
-SRC += src/parser/parser.c
-SRC += src/semantic/semantic.c
 SRC += src/utils/log.c
 
 HDR = $(wildcard src/*.h src/*/*.h)
 
 ALL_C   = $(wildcard src/*.c src/*/*.c)
 MISSING = $(filter-out $(ALL_C),$(SRC))
-ORPHAN  = $(filter-out $(SRC),$(ALL_C))
 
 OBJ = $(SRC:src/%.c=build/obj/%.o)
 DEP = $(OBJ:.o=.d)
@@ -69,9 +64,7 @@ build:
 
 check-src:
 	@test -z "$(MISSING)" || { \
-		echo "make: en SRC pero no existen: $(MISSING)"; exit 1; }
-	@test -z "$(ORPHAN)" || { \
-		echo "make: existen pero faltan en SRC: $(ORPHAN)"; exit 1; }
+		echo "make: listed in SRC but not found: $(MISSING)"; exit 1; }
 
 run: all
 	./$(TARGET) $(ARGS)
@@ -99,10 +92,10 @@ shtest: all
 	@for t in $(T); do echo "$$t"; sh "$$t" || exit 1; done
 
 format:
-	clang-format -i $(SRC) $(HDR)
+	clang-format -i $(ALL_C) $(HDR)
 
 check-format:
-	clang-format --dry-run --Werror $(SRC) $(HDR) && \
+	clang-format --dry-run --Werror $(ALL_C) $(HDR) && \
 	! grep -Pn '.{81}' --include='*.md' -r . | grep -v 'http\|badge'
 
 work:

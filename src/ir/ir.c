@@ -49,10 +49,6 @@ static enum ir_op ast_op_to_ir(enum op_type op)
 		return IR_LE;
 	case OP_GE:
 		return IR_GE;
-	case OP_AND:
-		return IR_AND;
-	case OP_OR:
-		return IR_OR;
 	default:
 		BUG("unhandled op in ast_op_to_ir: %d", op);
 	}
@@ -889,31 +885,17 @@ static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *nod
 		return ic->current_slot;
 	}
 	case NODE_BINARY: {
-		struct ir_operand *lhs = lower_expr(ic, node->binary.left);
-		struct ir_operand *rhs;
-		struct ir_type *res = ir_sem_type_lowering(ic, node->rtype);
-		enum ir_op op = ast_op_to_ir(node->binary.type);
-		struct ir_block *then = ic->current_block;
+		struct ir_operand *lhs, *rhs;
+		struct ir_type *res;
+		enum ir_op op;
 
-		/*
-		 * AND & OR are short-circuit need to check left side only
-		 *
-		 * - AND: only if left is true will check right
-		 * - OR: if left is true will ignore right
-		 */
-		if (op == IR_AND) {
-			struct ir_block *right_expr_block = ir_build_block(ic, "rhs");
-			struct ir_block *bin_merge = ir_build_block(ic, "bin_merge");
-			ir_emit_cjump(ic, lhs, right_expr_block, bin_merge);
-			ir_set_block(ic, right_expr_block);
-			rhs =lower_expr(ic, node->binary.right);
-			ir_emit_cjump(ic, rhs, then,bin_merge);
-			return NULL;
-		} else if (op == IR_OR) {
+		if (node->binary.type == OP_AND || node->binary.type == OP_OR)
+			BUG("short-circuit (&& / ||) not implemented");
 
-		}
-
+		op = ast_op_to_ir(node->binary.type);
+		lhs = lower_expr(ic, node->binary.left);
 		rhs = lower_expr(ic, node->binary.right);
+		res = ir_sem_type_lowering(ic, node->rtype);
 
 		if (!is_cmp_op(op)) {
 			if (lhs->type != res)

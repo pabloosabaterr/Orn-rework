@@ -5,24 +5,20 @@
 
 test_expect_success 'basic tokenization' '
 	cat >input.orn <<-\EOF &&
-	fn main() {
-		let x: int = 42;
+	main :: in {
+	x := 42;
 	}
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
-	fn [fn] - 1:0
-	main [ID] - 1:3
-	( [LPAREN] - 1:7
-	) [RPAREN] - 1:8
-	{ [LBRACE] - 1:10
-	let [let] - 2:0
-	x [ID] - 2:4
-	: [COLON] - 2:5
-	int [int] - 2:7
-	= [EQUAL] - 2:11
-	42 [NUMBER] - 2:13
-	; [SEMICOLON] - 2:15
+	main [ID] - 1:0
+	:: [DECL] - 1:5
+	in [in] - 1:8
+	{ [LBRACE] - 1:11
+	x [ID] - 2:0
+	:= [WALRUS] - 2:2
+	42 [NUMBER] - 2:5
+	; [SEMICOLON] - 2:7
 	} [RBRACE] - 3:0
 	Program compiled with 0 errors
 	EOF
@@ -31,7 +27,7 @@ test_expect_success 'basic tokenization' '
 
 test_expect_success 'multi-character operators' '
 	cat >input.orn <<-\EOF &&
-	== != << >> -> <- ++ -- <= >= && ||
+	== != << >> <= >= && || :: := .. ...
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
@@ -39,14 +35,14 @@ test_expect_success 'multi-character operators' '
 	!= [NEQ] - 1:3
 	<< [LSHIFT] - 1:6
 	>> [RSHIFT] - 1:9
-	-> [RARROW] - 1:12
-	<- [LARROW] - 1:15
-	++ [INCREMENT] - 1:18
-	-- [DECREMENT] - 1:21
-	<= [LE] - 1:24
-	>= [GE] - 1:27
-	&& [AND] - 1:30
-	|| [OR] - 1:33
+	<= [LE] - 1:12
+	>= [GE] - 1:15
+	&& [AND] - 1:18
+	|| [OR] - 1:21
+	:: [DECL] - 1:24
+	:= [WALRUS] - 1:27
+	.. [RANGE] - 1:30
+	... [SPREAD] - 1:33
 	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
@@ -54,7 +50,7 @@ test_expect_success 'multi-character operators' '
 
 test_expect_success 'single-character operators' '
 	cat >input.orn <<-\EOF &&
-	+ - * / % ~ ^ ? : . , ;
+	+ - * / % ~ ^ : . , ; #
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
@@ -65,11 +61,11 @@ test_expect_success 'single-character operators' '
 	% [MOD] - 1:8
 	~ [TILDE] - 1:10
 	^ [CARET] - 1:12
-	? [QUESTION] - 1:14
-	: [COLON] - 1:16
-	. [DOT] - 1:18
-	, [COMMA] - 1:20
-	; [SEMICOLON] - 1:22
+	: [COLON] - 1:14
+	. [DOT] - 1:16
+	, [COMMA] - 1:18
+	; [SEMICOLON] - 1:20
+	# [HASH] - 1:22
 	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
@@ -77,15 +73,15 @@ test_expect_success 'single-character operators' '
 
 test_expect_success 'keywords are not identifiers' '
 	cat >input.orn <<-\EOF &&
-	if iff iffy return returning
+	if iff iffy ret retting
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
 	if [if] - 1:0
 	iff [ID] - 1:3
 	iffy [ID] - 1:7
-	return [ID] - 1:12
-	returning [ID] - 1:19
+	ret [ret] - 1:12
+	retting [ID] - 1:16
 	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
@@ -236,16 +232,16 @@ test_expect_success 'unterminated block comment reports error' '
 
 test_expect_success 'undescore name is gets correctly tokenized' '
 	cat >input.orn <<-\EOF &&
-	fn _foo() {}
+	_foo :: () {}
 	EOF
 	"$ORN" --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
-	fn [fn] - 1:0
-	_foo [ID] - 1:3
-	( [LPAREN] - 1:7
-	) [RPAREN] - 1:8
-	{ [LBRACE] - 1:10
-	} [RBRACE] - 1:11
+	_foo [ID] - 1:0
+	:: [DECL] - 1:5
+	( [LPAREN] - 1:8
+	) [RPAREN] - 1:9
+	{ [LBRACE] - 1:11
+	} [RBRACE] - 1:12
 	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
