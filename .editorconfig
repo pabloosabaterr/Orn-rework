@@ -3,10 +3,15 @@ charset = utf-8
 insert_final_newline = true
 
 # Mirrored in .clang-format — keep them in sync.
-[{*.{c,h,sh,bash},Makefile}]
+[*.{c,h,sh,bash}]
 indent_style = space
 tab_width = 4
 max_line_length = 100
+indent_size = 4
+
+[Makefile]
+indent_style = tab
+tab_width = 4
 
 [*.yml]
 indent_style = space

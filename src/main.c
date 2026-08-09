@@ -1,15 +1,12 @@
 #include "compiler.h"
 #include "diagnostic.h"
 #include "lexer.h"
+#include "parse-options.h"
 #include "wrapper.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-/*
- * NEEDSWORK: should go to a IO file later when more IO related functions
- * come or when imports and modules come in.
- */
 static char *read_file(const char *path)
 {
     FILE *f;
@@ -39,30 +36,29 @@ static char *read_file(const char *path)
 
 int main(int argc, char **argv)
 {
-    struct compiler_options options = COMPILER_OPTIONS_INIT;
     struct compiler_context cc = COMPILER_CONTEXT_INIT;
     const char *filename = NULL;
     struct lexer_context lexer;
     char *src = NULL;
+    int opts = -1;
     int ret = 0;
-    int i;
 
-    for (i = 1; i < argc; i++)
-        if (!strcmp(argv[i], "--dump-tokens"))
-            options.dump_tokens = 1;
-        else if (argv[i][0] == '-')
-            die("unknown option '%s'", argv[i]);
-        else if (!filename)
-            filename = argv[i];
-        else
-            die("multiple input files not supported");
+    struct option options[] = {
+        OPT_BOOL('t', "dump-tokens", &cc.dump_tokens),
+        OPT_END()
+    };
+
+    opts = parse_options(argc, argv, options);
+
+    if (opts < argc)
+        filename = argv[opts];
 
     if (!filename)
         die("no input file provided");
 
     src = read_file(filename);
 
-    compiler_init(&cc, filename, src, options);
+    compiler_init(&cc, filename, src);
     lexer_init(&lexer, &cc);
 
     dump_tokens(&lexer);
