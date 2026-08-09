@@ -52,10 +52,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-440894f6.js";
+            window.path_to_searchindex_js = "searchindex-8b47e9e8.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-92aa8c78.js"></script>
+        <script src="toc-73e76ee1.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -209,91 +209,16 @@ of the syntax in this book it is not implemented yet, but it is intended to
 be.</p>
 </blockquote>
 <h2 id="what-is-orn"><a class="header" href="#what-is-orn">What is Orn?</a></h2>
-<p>Orn is a systems-oriented language that aims for developers coming from
-high-level languages such as TypeScript but also low-level devs that are tired
-of the boilerplate and unreadable code.</p>
-<p>Orn brings familiar syntax with low-level capabilities like manual memory
-management, pointers and strong static types while keeping a soft learning curve
-and a good developer experience.</p>
-<h3 id="release"><a class="header" href="#release">Release</a></h3>
-<p>Orn is still being designed and implemented. This documentation works as a
-declaration of what it is intended to be for v1.0.</p>
-<p>For a roadmap after v1.0, see the <a href="NEEDSWORK.html">Roadmap</a> section.</p>
-<h2 id="how-does-orn-look-like"><a class="header" href="#how-does-orn-look-like">How does Orn look like?</a></h2>
-<pre><code class="language-orn">struct Node {
-	val: int;
-	next: *Node;
-}
-
-enum Option {
-	Some(int),
-	None,
-}
-
-impl Node {
-	fn create(val: int) -&gt; Node {
-		ret Node { val: val, next: null };
-	}
-
-	fn find(head: *Node, target: int) -&gt; Option {
-		while head {
-			if head.val == target {
-				ret ::Some(head.val);
-			}
-			head = head.next;
-		}
-		ret ::None;
-	}
-}
-
-fn main() -&gt; int {
-	let a = Node::create(10);
-	let b = Node::create(20);
-	let c = Node::create(30);
-	a.next = &amp;b;
-	b.next = &amp;c;
-
-	let result = Node::find(&amp;a, 20);
-
-	match (result) {
-		Some(val) =&gt; { ret val; }
-		None =&gt; { ret -1; }
-	}
-}
-</code></pre>
-<p>This example is consist of linked list implementation along with a function
-to find a value in the list.</p>
-<h2 id="conventions-throughout-the-book"><a class="header" href="#conventions-throughout-the-book">Conventions throughout the book</a></h2>
-<p>thoughout the book, you’ll find many syntax explanations and code snippets.
-The syntax explanations are BNF-like rules following this notation:</p>
-<pre><code>	x y     : sequence
-	x | y   : alternative
-	x?      : optional
-	x*      : zero or more
-	x+      : one or more
-	"x"     : literal token
-	UPPER   : token from lexer
-	(x y)   : grouping
-</code></pre>
-<p>e.g:</p>
-<pre><code>	if_stmt = IF expr stmt (ELIF expr stmt)* (ELSE stmt)?
-</code></pre>
-<p>This means that an <code>if_stmt</code> consists of an <code>TK_IF</code> followed by an <code>expr</code> and a
-<code>stmt</code>, followed by zero or more groups of <code>TK_ELIF expr stmt</code>, and optionally
-an else statement that would be the group <code>TK_ELSE stmt</code>.</p>
-<h2 id="contributing"><a class="header" href="#contributing">Contributing</a></h2>
-<p>There are many ways to contribute to Orn, from reporting bugs and suggesting
-what you’d like to have implemented, to writing code and documentation.
-All contributions are welcome.</p>
-<p>You can know more about how to contribute at
-<a href="https://github.com/pabloosabaterr/Orn-rework/blob/main/CONTRIBUTING.md">Contributing to Orn</a></p>
+<p>Orn is a language designed for quick sketching while preserving caracteristics
+of system languages.</p>
+<p>The idea is to be as minimal as possible while keeping the maximum expresiveness.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
 
-                            <a rel="next prefetch" href="syntax.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="grammar.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -304,7 +229,7 @@ All contributions are welcome.</p>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
 
-                    <a rel="next prefetch" href="syntax.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="grammar.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
