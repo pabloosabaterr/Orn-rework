@@ -1,6 +1,6 @@
-#include "lexer/lexer.h"
-#include "diagnostic/diagnostic.h"
-#include "memory/wrapper.h"
+#include "lexer.h"
+#include "diagnostic.h"
+#include "wrapper.h"
 #include "compiler.h"
 
 #include <ctype.h>
@@ -118,13 +118,13 @@ const char *token_type_pretty(enum token_type type)
     case TK_EOF:
         return "end of file";
     case TK_DECL:
-		return "::";
-	case TK_WALRUS:
-		return ":=";
-	case TK_HASH:
-		return "#";
-	case TK_SPREAD:
-		return "...";
+        return "::";
+    case TK_WALRUS:
+        return ":=";
+    case TK_HASH:
+        return "#";
+    case TK_SPREAD:
+        return "...";
     default:
         return token_type_str(type);
     }

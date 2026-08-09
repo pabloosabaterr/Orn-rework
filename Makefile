@@ -17,13 +17,6 @@ LDFLAGS =
 
 CFLAGS += $(DFLAGS)
 
-ifdef DEBUG
-	CFLAGS += -g -O0
-endif
-ifdef TRACES
-	CFLAGS += -DTRACES -g
-endif
-
 SAN_FLAGS = -fsanitize=address,undefined -fno-omit-frame-pointer -g -O1
 
 NAME = orn
@@ -31,25 +24,19 @@ TARGET = build/$(NAME)
 
 SRC  = src/main.c
 SRC += src/compiler.c
-SRC += src/diagnostic/diagnostic.c
-SRC += src/lexer/lexer.c
-SRC += src/memory/arena.c
-SRC += src/memory/hashmap.c
-SRC += src/memory/str-buf.c
-SRC += src/memory/wrapper.c
-SRC += src/utils/log.c
-SRC += src/parser/parser.c
-SRC += src/parser/ast.c
-
-HDR = $(wildcard src/*.h src/*/*.h)
-
-ALL_C   = $(wildcard src/*.c src/*/*.c)
-MISSING = $(filter-out $(ALL_C),$(SRC))
+SRC += src/diagnostic.c
+SRC += src/lexer.c
+SRC += src/arena.c
+SRC += src/hashmap.c
+SRC += src/str-buf.c
+SRC += src/wrapper.c
+SRC += src/log.c
+SRC += src/parser.c
 
 OBJ = $(SRC:src/%.c=build/obj/%.o)
 DEP = $(OBJ:.o=.d)
 
-all: check-src $(TARGET)
+all: $(TARGET)
 
 $(TARGET): $(OBJ) | build
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
@@ -64,15 +51,8 @@ build/.flags: FORCE | build
 build:
 	mkdir -p build
 
-check-src:
-	@test -z "$(MISSING)" || { \
-		echo "make: listed in SRC but not found: $(MISSING)"; exit 1; }
-
 run: all
 	./$(TARGET) $(ARGS)
-
-debug: DFLAGS += -g -O0
-debug: clean all
 
 san: clean
 	$(MAKE) DFLAGS="$(SAN_FLAGS)"
@@ -93,13 +73,6 @@ vtest: all
 shtest: all
 	@for t in $(T); do echo "$$t"; sh "$$t" || exit 1; done
 
-format:
-	clang-format -i $(ALL_C) $(HDR)
-
-check-format:
-	clang-format --dry-run --Werror $(ALL_C) $(HDR) && \
-	! grep -Pn '.{81}' --include='*.md' -r . | grep -v 'http\|badge'
-
 work:
 	grep -r "NEEDSWORK" src/ docs/src/NEEDSWORK.md --color=always
 
@@ -110,5 +83,5 @@ clean:
 
 .DELETE_ON_ERROR:
 FORCE:
-.PHONY: all check-src run test vtest shtest san san-test format check-format \
+.PHONY: all run test vtest shtest san san-test format check-format \
 	work clean FORCE

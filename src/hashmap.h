@@ -41,14 +41,14 @@
  */
 
 struct hashmap_entry {
-	struct hashmap_entry *next;
-	unsigned int hash;
+    struct hashmap_entry *next;
+    unsigned int hash;
 };
 
 struct hashmap {
-	struct hashmap_entry **table;
-	size_t size;
-	size_t nr;
+    struct hashmap_entry **table;
+    size_t size;
+    size_t nr;
 };
 
 typedef int (*hashmap_cmp_fn)(const struct hashmap_entry *entry, const void *key);
@@ -57,7 +57,7 @@ void hashmap_init(struct hashmap *map);
 void hashmap_free(struct hashmap *map);
 void hashmap_put(struct hashmap *map, struct hashmap_entry *entry);
 unsigned int strhash(const char *start, size_t len);
-struct hashmap_entry *hashmap_get(struct hashmap *map, unsigned int hash,
-				  hashmap_cmp_fn cmp, const void *key);
+struct hashmap_entry *hashmap_get(struct hashmap *map, unsigned int hash, hashmap_cmp_fn cmp,
+                                  const void *key);
 
 #endif
