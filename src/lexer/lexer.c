@@ -38,7 +38,6 @@ static const char *token_type_names[] = {
     [TK_HEX] = "HEX",
     [TK_ID] = "ID",
     [TK_IF] = "if",
-    [TK_IMPORT] = "import",
     [TK_IN] = "in",
     [TK_LBRACE] = "LBRACE",
     [TK_LBRACKET] = "LBRACKET",
@@ -306,10 +305,6 @@ static struct token token_id(struct lexer_context *lexer, const char *start)
     case 'g':
         if (len == 4 && !memcmp(start, "goto", 4))
             return create_token(TK_GOTO, start, len);
-        break;
-    case 'i':
-        if (len == 6 && !memcmp(start, "import", 6))
-            return create_token(TK_IMPORT, start, len);
         break;
     case 'l':
         if (len == 4 && !memcmp(start, "loop", 4))

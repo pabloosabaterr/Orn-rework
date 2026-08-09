@@ -38,6 +38,8 @@ SRC += src/memory/hashmap.c
 SRC += src/memory/str-buf.c
 SRC += src/memory/wrapper.c
 SRC += src/utils/log.c
+SRC += src/parser/parser.c
+SRC += src/parser/ast.c
 
 HDR = $(wildcard src/*.h src/*/*.h)
 
