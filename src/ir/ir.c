@@ -1030,7 +1030,6 @@ static struct ir_operand *lower_expr(struct ir_context *ic, struct ast_node *nod
 			if (node->call.nr_arg > 0) {
 				struct ir_operand *pay_idx;
 				struct ir_operand *pay_ptr;
-				size_t i;
 
 				pay_idx = ir_emit_const_int(ic, 1, ic->t_i32);
 				pay_ptr = ir_emit_gep(ic, ic->current_slot, pay_idx,
@@ -1135,6 +1134,14 @@ static int is_block_terminated(struct ir_block *block)
 	return op == IR_JUMP || op == IR_CJUMP || op == IR_RET;
 }
 
+static void ir_append_block(struct ir_context *ic, struct ir_block *bb)
+{
+	ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_fn->blocks,
+			 ic->current_fn->nr_block + 1,
+			 ic->current_fn->alloc_block);
+	ic->current_fn->blocks[ic->current_fn->nr_block++] = bb;
+}
+
 static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 {
 	switch (node->type) {
@@ -1161,43 +1168,26 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 		size_t i;
 
 		/*
-		 * Manually create the merge block to avoid having it appended
-		 * before the branch blocks
+		 * merge y las ramas se crean sin añadir: el orden en
+		 * fn->blocks se decide explícitamente más abajo.
 		 */
 		struct ir_block *merge = ir_create_block(ic, "merge");
 
 		for (i = 0; i < node->if_stmt.nr_branch; i++) {
-			/*
-			 * Same as merge block
-			 */
 			struct ir_block *then = ir_create_block(ic, "then");
 			struct ir_block *next;
+			struct ir_operand *cond;
 
 			if (i + 1 < node->if_stmt.nr_branch)
-				next = ir_build_block(ic, "elif");
+				next = ir_create_block(ic, "elif");
 			else if (node->if_stmt.else_body)
-				next = ir_build_block(ic, "else");
+				next = ir_create_block(ic, "else");
 			else
 				next = merge;
 
-			/*
-			 * Set then block as current without been appended so
-			 * condition expression can pivot with it.
-			 */
-			ir_set_block(ic, then);
+			cond = lower_expr(ic, node->if_stmt.conds[i]);
 
-			struct ir_operand *cond = lower_expr(ic, node->if_stmt.conds[i]);
-
-			/*
-			 * Append 'then' block after lowering the condition so
-			 * if the condition is an AND | OR the shor-circuit blocks
-			 * will be appended before the 'then' block
-			 */
-			ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_fn->blocks,
-					 ic->current_fn->nr_block + 1,
-					 ic->current_fn->alloc_block);
-			ic->current_fn->blocks[ic->current_fn->nr_block++] = then;
-
+			ir_append_block(ic, then);
 			ir_emit_cjump(ic, cond, then, next);
 
 			ir_set_block(ic, then);
@@ -1205,6 +1195,8 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 			if (!is_block_terminated(ic->current_block))
 				ir_emit_jump(ic, merge);
 
+			if (next != merge)
+				ir_append_block(ic, next);
 			ir_set_block(ic, next);
 		}
 
@@ -1214,14 +1206,7 @@ static void lower_stmt(struct ir_context *ic, struct ast_node *node)
 				ir_emit_jump(ic, merge);
 		}
 
-		/*
-		 * Append merge block after all the branches
-		 */
-		ARENA_ALLOC_GROW(&ic->cc->arena, ic->current_fn->blocks,
-				 ic->current_fn->nr_block + 1,
-				 ic->current_fn->alloc_block);
-		ic->current_fn->blocks[ic->current_fn->nr_block++] = merge;
-
+		ir_append_block(ic, merge);
 		ir_set_block(ic, merge);
 		break;
 	}

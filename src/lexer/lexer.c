@@ -99,7 +99,7 @@ static const char *token_type_names[] = {
 	[TK_UNDERSCORE] = "UNDERSCORE",
 };
 
-const char *token_type_str(enum token_type type)
+static const char *token_type_str(enum token_type type)
 {
 	if ((unsigned)type < ARRAY_SIZE(token_type_names) && token_type_names[type])
 		return token_type_names[type];

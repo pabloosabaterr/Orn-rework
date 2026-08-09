@@ -1,6 +1,7 @@
 #ifndef DIAGNOSTIC_H
 #define DIAGNOSTIC_H
 
+#include "utils/attrs.h"
 #include <stddef.h>
 #include <stdio.h>
 
@@ -36,7 +37,8 @@ void diag_init(struct diag_context *ctx);
 void diag_free(struct diag_context *ctx);
 
 void diag_emit(struct diag_context *ctx, enum severity_level level,
-	       struct source_location loc, const char *fmt, ...);
+	       struct source_location loc, const char *fmt, ...)
+	PRINTF_FMT(4, 5);
 
 int diag_has_errors(struct diag_context *ctx);
 
