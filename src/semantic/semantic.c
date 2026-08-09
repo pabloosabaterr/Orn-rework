@@ -243,8 +243,8 @@ static struct type *type_fn(struct semantic_context *sc, struct type **params,
 	t->fn.ret = ret;
 
 	if (nr) {
-		p = arena_alloc(&sc->cc->arena, sizeof(*t) * nr);
-		memcpy(p, params, sizeof(*t) * nr);
+		p = arena_alloc(&sc->cc->arena, sizeof(*p) * nr);
+		memcpy(p, params, sizeof(*p) * nr);
 	} else {
 		p = NULL;
 	}
