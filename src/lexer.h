@@ -7,6 +7,7 @@ struct compiler_context;
 struct diag_context;
 
 enum token_type {
+    TK_UNINIT,
     TK_EOF,
     TK_ERROR,
     TK_ID,
@@ -103,6 +104,8 @@ struct lexer_context {
     int col;
 };
 
+#define LEXER_CONTEXT_INIT { 0 }
+
 struct token {
     enum token_type type;
     const char *lex;
@@ -110,6 +113,8 @@ struct token {
     int line;
     int col;
 };
+
+#define TOKEN_INIT { .type = TK_UNINIT }
 
 void lexer_init(struct lexer_context *ctx, struct compiler_context *cc);
 struct token token_next(struct lexer_context *ctx);

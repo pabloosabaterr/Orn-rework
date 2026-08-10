@@ -96,8 +96,6 @@ enum op_type {
 struct ast_node {
     enum node_type type;
     struct token tok;
-    struct type *rtype;
-    struct symbol *rsym;
     union {
         /* NODE_PROGRAM, NODE_BLOCK */
         struct {
@@ -252,13 +250,17 @@ struct parser_context {
     struct lexer_context *lexer;
     struct diag_context *diag;
     const char *file;
+    struct token (*getToken)(struct lexer_context *);
     struct token current;
     struct token prev;
     struct arena *arena;
     int errors;
+
     unsigned no_struct_init : 1;
     unsigned in_panic : 1;
 };
+
+#define PARSER_CONTEXT_INIT { 0 }
 
 void parser_init(struct parser_context *ctx, struct lexer_context *lexer,
                  struct compiler_context *cc);

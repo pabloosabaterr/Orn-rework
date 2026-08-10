@@ -4,6 +4,7 @@
 #include "lexer.h"
 #include "log.h"
 #include "parse-options.h"
+#include "parser.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,8 +13,9 @@
 int main(int argc, char **argv)
 {
     struct compiler_context cc = COMPILER_CONTEXT_INIT;
+    struct parser_context parser = PARSER_CONTEXT_INIT;
+    struct lexer_context lexer = LEXER_CONTEXT_INIT;
     const char *filename = NULL;
-    struct lexer_context lexer;
     char *src = NULL;
     int opts = -1;
     int ret = 0;
@@ -35,9 +37,10 @@ int main(int argc, char **argv)
 
     compiler_init(&cc, filename, src);
     lexer_init(&lexer, &cc);
+    parser_init(&parser, &lexer, &cc);
 
-    dump_tokens(&lexer);
-
+    if (cc.dump_tokens)
+        dump_tokens(&lexer);
     diag_flush(&cc.diag, stderr);
     printf("Program compiled with %d %s\n", cc.diag.nr_error,
            cc.diag.nr_error == 1 ? "error" : "errors");
