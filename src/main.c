@@ -39,14 +39,20 @@ int main(int argc, char **argv)
     lexer_init(&lexer, &cc);
     parser_init(&parser, &lexer, &cc);
 
-    if (cc.dump_tokens)
+    if (cc.dump_tokens) {
         dump_tokens(&lexer);
+        goto cleanup;
+    }
+
+    parser_parse(&parser);
+
     diag_flush(&cc.diag, stderr);
     printf("Program compiled with %d %s\n", cc.diag.nr_error,
            cc.diag.nr_error == 1 ? "error" : "errors");
 
     ret = diag_has_errors(&cc.diag) ? 1 : 0;
 
+cleanup:
     free(src);
     compiler_free(&cc);
     return ret;

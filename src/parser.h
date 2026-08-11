@@ -93,13 +93,13 @@ enum op_type {
  * It is preferred to be redundant at the union so later on the next stages,
  * the code is readable and there is no need for node_type dispatchers.
  */
-struct ast_node {
+struct parser_ast_node {
     enum node_type type;
     struct token tok;
     union {
         /* NODE_PROGRAM, NODE_BLOCK */
         struct {
-            struct ast_node **childs;
+            struct parser_ast_node **childs;
             size_t nr;
             size_t alloc;
         } block;
@@ -117,18 +117,18 @@ struct ast_node {
          * is_method is set for a member written with a leading dot.
          */
         struct {
-            struct ast_node *ann;
-            struct ast_node *init;
+            struct parser_ast_node *ann;
+            struct parser_ast_node *init;
             unsigned is_const : 1;
             unsigned is_method : 1;
         } binding;
 
         /* NODE_FN. The name, if any, belongs to the binding above. */
         struct {
-            struct ast_node **params;
+            struct parser_ast_node **params;
             size_t nr_param;
-            struct ast_node *ret_type;
-            struct ast_node *body;
+            struct parser_ast_node *ret_type;
+            struct parser_ast_node *body;
             unsigned is_variadic : 1;
         } fn;
 
@@ -138,7 +138,7 @@ struct ast_node {
          * An enum holds its variants first, then its members.
          */
         struct {
-            struct ast_node **items;
+            struct parser_ast_node **items;
             size_t nr_item;
         } list;
 
@@ -149,69 +149,69 @@ struct ast_node {
          */
         struct {
             struct token *var;
-            struct ast_node *head;
-            struct ast_node *body;
+            struct parser_ast_node *head;
+            struct parser_ast_node *body;
         } loop;
 
         struct {
-            struct ast_node *cond;
-            struct ast_node *then_body;
-            struct ast_node *else_body;
+            struct parser_ast_node *cond;
+            struct parser_ast_node *then_body;
+            struct parser_ast_node *else_body;
         } if_stmt;
 
         /* NODE_CAST_OR_CALL until the semantic pass collapses it */
         struct {
-            struct ast_node *expr;
-            struct ast_node *target_type;
+            struct parser_ast_node *expr;
+            struct parser_ast_node *target_type;
         } cast;
 
         struct {
-            struct ast_node *expr;
+            struct parser_ast_node *expr;
         } return_stmt;
         struct {
-            struct ast_node *expr;
+            struct parser_ast_node *expr;
         } expr_stmt;
         struct {
-            struct ast_node *expr;
+            struct parser_ast_node *expr;
         } import_expr;
         struct {
-            struct ast_node *val;
+            struct parser_ast_node *val;
         } variant;
         struct {
-            struct ast_node *left;
+            struct parser_ast_node *left;
         } member;
         struct {
-            struct ast_node *arg;
+            struct parser_ast_node *arg;
         } named_arg;
 
         struct {
             enum op_type type;
-            struct ast_node *operand;
+            struct parser_ast_node *operand;
         } unary;
 
         struct {
-            struct ast_node *left;
-            struct ast_node *right;
+            struct parser_ast_node *left;
+            struct parser_ast_node *right;
             enum op_type type;
         } binary;
 
         struct {
             enum op_type type;
-            struct ast_node *target;
-            struct ast_node *val;
+            struct parser_ast_node *target;
+            struct parser_ast_node *val;
         } assign;
 
         struct {
-            struct ast_node *callee;
-            struct ast_node **args;
+            struct parser_ast_node *callee;
+            struct parser_ast_node **args;
             size_t nr_arg;
         } call;
 
         /* end is NULL for plain index */
         struct {
-            struct ast_node *obj;
-            struct ast_node *idx;
-            struct ast_node *end;
+            struct parser_ast_node *obj;
+            struct parser_ast_node *idx;
+            struct parser_ast_node *end;
         } index;
 
         struct {
@@ -234,14 +234,14 @@ struct ast_node {
 
         /* NODE_PARAM */
         struct {
-            struct ast_node *ann;
+            struct parser_ast_node *ann;
             unsigned is_spread : 1;
         } param;
 
         /* [size]elem_type, size is an expression */
         struct {
-            struct ast_node *elem_type;
-            struct ast_node *size;
+            struct parser_ast_node *elem_type;
+            struct parser_ast_node *size;
         } type_array;
     };
 };
@@ -256,7 +256,6 @@ struct parser_context {
     struct arena *arena;
     int errors;
 
-    unsigned no_struct_init : 1;
     unsigned in_panic : 1;
 };
 
@@ -264,7 +263,7 @@ struct parser_context {
 
 void parser_init(struct parser_context *ctx, struct lexer_context *lexer,
                  struct compiler_context *cc);
-struct ast_node *parser_parse(struct parser_context *parser);
+struct parser_ast_node *parser_parse(struct parser_context *parser);
 void parser_free(struct parser_context *parser);
 
 #endif

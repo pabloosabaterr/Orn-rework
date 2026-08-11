@@ -3,7 +3,9 @@
 #include "attrs.h"
 #include "compiler.h"
 #include "diagnostic.h"
+#include "arena.h"
 #include "lexer.h"
+#include "log.h"
 
 #include <assert.h>
 #include <stddef.h>
@@ -54,14 +56,73 @@ static void expect_token(struct parser_context *p, enum token_type type)
 }
 
 UNUSED
-static struct ast_node *create_node(struct parser_context *p, enum node_type type)
+static struct parser_ast_node *create_node(struct parser_context *p, enum node_type type)
 {
-   struct ast_node *node = arena_alloc(p->arena, sizeof(struct ast_node));
-   memset(node, 0, sizeof(struct ast_node));
+   struct parser_ast_node *node = arena_alloc(p->arena, sizeof(struct parser_ast_node));
+   memset(node, 0, sizeof(struct parser_ast_node));
    node->tok = p->current;
    node->type = type;
 
    return node;
+}
+
+/*
+ * Returns 1 on failing to append.
+ * Realloc's if the block list is full.
+ */
+static int append_node_to_block(struct parser_context *p,
+                                struct parser_ast_node *block,
+                                struct parser_ast_node *to_append)
+{
+    if (block->type != NODE_PROGRAM && block->type != NODE_BLOCK)
+        return 1;
+
+    if (block->block.nr >= block->block.alloc)
+        ARENA_ALLOC_GROW(p->arena, block->block.childs, block->block.nr + 1, block->block.alloc);
+
+    block->block.childs[block->block.nr++] = to_append;
+
+    return 0;
+}
+
+/*
+ * stmt = binding SEMI
+ *      | label
+ *      | GOTO label SEMI
+ *      | loop_stmt
+ *      | RET expr? SEMI
+ *      | BREAK SEMI
+ *      | CONTINUE SEMI
+ *      | expr SEMI
+ */
+static struct parser_ast_node *parse_stmt(struct parser_context *p UNUSED)
+{
+    die("not done");
+}
+
+/*
+ * NODE_PROGRAM is just a cool block
+ * program = stmt*
+ */
+static struct parser_ast_node *parse_program(struct parser_context *p)
+{
+    advance_token(p);
+
+    struct parser_ast_node *program = create_node(p, NODE_PROGRAM);
+    while(!check_token(p, TK_EOF)) {
+        struct parser_ast_node *stmt = parse_stmt(p);
+
+        if (stmt)
+            append_node_to_block(p, program, stmt);
+
+    }
+
+    return program;
+}
+
+struct parser_ast_node *parser_parse(struct parser_context *p)
+{
+    return parse_program(p);
 }
 
 void parser_init(struct parser_context *p, struct lexer_context *lexer, struct compiler_context *cc)

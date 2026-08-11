@@ -2,6 +2,7 @@
 #define ARENA_H
 
 #include <stddef.h>
+#include "wrapper.h"
 
 #define align_up(n, alignement) (((n) + (alignement) - 1) & ~((alignement) - 1))
 
