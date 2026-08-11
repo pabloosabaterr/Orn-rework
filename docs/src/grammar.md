@@ -74,9 +74,15 @@ primary    = literal
 literal    = NUMBER | FLOATING | STRINGLIT | CHARLIT
            | TRUE | FALSE | NULL
 
-primitive  = IN | UN | FL | DB | BL | CH | ST | VD | TP
+primitive  = INT | UNS | FLT | DBL | BOL | CHR | STR | VOD | TPE
 
 arg_list   = arg (COMMA arg)* COMMA?
 arg        = (ID COLON)? expr
 expr_list  = expr (COMMA expr)* COMMA?
 ```
+
+Everything that is on capital letters means Literal text:
+
+- UNS = "uns"
+- LT = "<"
+...

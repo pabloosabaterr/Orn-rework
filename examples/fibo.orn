@@ -1,0 +1,27 @@
+fib :: (n: int) int {
+    if n <= 1 {
+        ret n;
+    };
+    ret fib(n - 1) + fib(n - 2);
+};
+
+fib_iter :: (n: int) int {
+    if n <= 1 {
+        ret n;
+    };
+
+    a := 0;
+    b := 1;
+
+    loop i := 2 {
+        if i > n {
+            break;
+        };
+        temp := a + b;
+        a = b;
+        b = temp;
+        i = i + 1;
+    };
+
+    ret b;
+};
