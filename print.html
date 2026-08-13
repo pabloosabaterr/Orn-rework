@@ -53,7 +53,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8b47e9e8.js";
+            window.path_to_searchindex_js = "searchindex-dac49c30.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-73e76ee1.js"></script>
@@ -290,12 +290,18 @@ primary    = literal
 literal    = NUMBER | FLOATING | STRINGLIT | CHARLIT
            | TRUE | FALSE | NULL
 
-primitive  = IN | UN | FL | DB | BL | CH | ST | VD | TP
+primitive  = INT | UNS | FLT | DBL | BOL | CHR | STR | VOD | TPE
 
 arg_list   = arg (COMMA arg)* COMMA?
 arg        = (ID COLON)? expr
 expr_list  = expr (COMMA expr)* COMMA?
 </code></pre>
+<p>Everything that is on capital letters means Literal text:</p>
+<ul>
+<li>UNS = “uns”</li>
+<li>LT = “&lt;”
+…</li>
+</ul>
 
                     </main>
 
