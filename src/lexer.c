@@ -1,5 +1,6 @@
 #include "lexer.h"
 #include "diagnostic.h"
+#include "source.h"
 #include "wrapper.h"
 #include "compiler.h"
 
@@ -466,14 +467,15 @@ static struct token token_charlit(struct lexer_context *lexer, const char *start
     return create_token(TK_CHARLIT, start, (size_t)(lexer->current - start));
 }
 
-void lexer_init(struct lexer_context *lexer, struct compiler_context *cc)
+void lexer_init(struct lexer_context *ctx,
+                const struct source_file *file,
+                struct diag_context *diag)
 {
-    lexer->src = cc->src;
-    lexer->current = cc->src;
-    lexer->diag = &cc->diag;
-    lexer->file = cc->filename;
-    lexer->line = 1;
-    lexer->col = 0;
+    ctx->file = file;
+    ctx->current = file->src;
+    ctx->diag = diag;
+    ctx->line = 1;
+    ctx->col = 0;
 }
 
 struct token lexer_get_next_token(struct lexer_context *lexer)

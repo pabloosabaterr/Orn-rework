@@ -11,8 +11,10 @@ enum severity_level {
     ERROR,
 };
 
+struct source_file;
+
 struct source_location {
-    const char *file;
+    const struct source_file *file;
     const char *line_start;
     int line;
     int col;

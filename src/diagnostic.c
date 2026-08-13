@@ -1,6 +1,7 @@
 #include "diagnostic.h"
 #include "str-buf.h"
 #include "wrapper.h"
+#include "source.h"
 
 #include <stdarg.h>
 #include <stddef.h>
@@ -57,7 +58,7 @@ static void diag_render(struct diagnostic *d, FILE *f)
     int padding, i;
 
     fprintf(f, "%s: %s\n", level_str[d->level], d->msg);
-    fprintf(f, " --> %s:%d:%d\n", d->loc.file, d->loc.line, d->loc.col);
+    fprintf(f, " --> %s:%d:%d\n", d->loc.file->path, d->loc.line, d->loc.col);
 
     end = d->loc.line_start;
     while (*end && *end != '\n')

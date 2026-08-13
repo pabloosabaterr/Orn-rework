@@ -249,11 +249,10 @@ struct parser_ast_node {
 struct parser_context {
     struct lexer_context *lexer;
     struct diag_context *diag;
-    const char *file;
+    struct arena *arena;
+
     struct token current;
     struct token prev;
-    struct arena *arena;
-    int errors;
 
     unsigned in_panic : 1;
 };
@@ -264,7 +263,7 @@ struct parser_context {
  * Initialice a given parser context
  */
 void parser_init(struct parser_context *ctx, struct lexer_context *lexer,
-                 struct compiler_context *cc);
+                 struct arena *arena, struct diag_context *diag);
 struct parser_ast_node *parser_parse(struct parser_context *parser);
 void parser_free(struct parser_context *parser);
 

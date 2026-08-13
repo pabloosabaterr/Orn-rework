@@ -35,10 +35,9 @@ static int check_and_advance(struct parser_context *p, enum token_type type)
     return 1;
 }
 
-static struct source_location loc_from_token(struct parser_context *p, struct token tok)
+static struct source_location loc_from_token(struct token tok)
 {
     return (struct source_location){
-        .file = p->file,
         .line_start = tok.lex - tok.col,
         .line = tok.line,
         .col = tok.col,
@@ -50,7 +49,7 @@ UNUSED
 static void expect_token(struct parser_context *p, enum token_type type)
 {
     if (!check_and_advance(p, type) && !p->in_panic) {
-        diag_emit(p->diag, ERROR, loc_from_token(p, p->prev), "expected '%s' after '%.*s'",
+        diag_emit(p->diag, ERROR, loc_from_token(p->prev), "expected '%s' after '%.*s'",
                   lexer_get_token_pretty(type), (int)p->prev.len, p->prev.lex);
         p->in_panic = 1;
     }
@@ -132,13 +131,13 @@ void parser_print(struct parser_ast_node *program)
     printf("PROGRAM\n");
 }
 
-void parser_init(struct parser_context *p, struct lexer_context *lexer, struct compiler_context *cc)
+void parser_init(struct parser_context *p, struct lexer_context *lexer,
+                struct arena *arena, struct diag_context *diag)
 {
     struct token t = TOKEN_INIT;
 
     p->lexer = lexer;
-    p->file = cc->filename;
-    p->diag = &cc->diag;
-    p->arena = &cc->arena;
+    p->arena = arena;
+    p->diag = diag;
     p->current = t;
 }

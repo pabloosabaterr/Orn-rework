@@ -1,6 +1,7 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include "source.h"
 #include <stddef.h>
 
 struct compiler_context;
@@ -95,11 +96,13 @@ enum token_type {
     TK_COUNT,
 };
 
+struct source_file;
+
 struct lexer_context {
-    const char *src;
-    const char *current;
-    const char *file;
+    const struct source_file *file;
     struct diag_context *diag;
+
+    const char *current;
     int line;
     int col;
 };
@@ -116,7 +119,9 @@ struct token {
 
 #define TOKEN_INIT { .type = TK_UNINIT }
 
-void lexer_init(struct lexer_context *ctx, struct compiler_context *cc);
+void lexer_init(struct lexer_context *ctx,
+                const struct source_file *file,
+                struct diag_context *diag);
 /*
  * Get the next token.
  * Consumes tokens each time is called and doesn't have the option to go back.

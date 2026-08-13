@@ -34,6 +34,7 @@ SRC += src/log.c
 SRC += src/parser.c
 SRC += src/parse-options.c
 SRC += src/io.c
+SRC += src/orn.c
 
 OBJ = $(SRC:src/%.c=build/obj/%.o)
 DEP = $(OBJ:.o=.d)
