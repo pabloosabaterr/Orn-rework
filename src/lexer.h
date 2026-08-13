@@ -117,8 +117,16 @@ struct token {
 #define TOKEN_INIT { .type = TK_UNINIT }
 
 void lexer_init(struct lexer_context *ctx, struct compiler_context *cc);
-struct token token_next(struct lexer_context *ctx);
-int dump_tokens(struct lexer_context *ctx);
-const char *token_type_pretty(enum token_type type);
+/*
+ * Get the next token.
+ * Consumes tokens each time is called and doesn't have the option to go back.
+ */
+struct token lexer_get_next_token(struct lexer_context *ctx);
+/*
+ * Dumps all the tokens into stdout.
+ * Consumes all the tokens in the process.
+ */
+int lexer_dump_tokens(struct lexer_context *ctx);
+const char *lexer_get_token_pretty(enum token_type type);
 
 #endif

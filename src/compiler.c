@@ -3,11 +3,10 @@
 /* 64kb initial */
 #define COMPILER_ARENA_DEF (64 * 1024)
 
-void compiler_init(struct compiler_context *cc, const char *filename, const char *src)
+void compiler_init(struct compiler_context *cc, const char *src)
 {
     arena_init(&cc->arena, COMPILER_ARENA_DEF);
     diag_init(&cc->diag);
-    cc->filename = filename;
     cc->src = src;
 }
 

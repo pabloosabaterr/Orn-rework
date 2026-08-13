@@ -9,15 +9,16 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 
 static struct token advance_token(struct parser_context *p)
 {
     if (p->current.type == TK_UNINIT)
-        p->current = p->getToken(p->lexer);
+        p->current = lexer_get_next_token(p->lexer);
 
     p->prev = p->current;
-    p->current = p->getToken(p->lexer);
+    p->current = lexer_get_next_token(p->lexer);
     return p->prev;
 }
 
@@ -50,7 +51,7 @@ static void expect_token(struct parser_context *p, enum token_type type)
 {
     if (!check_and_advance(p, type) && !p->in_panic) {
         diag_emit(p->diag, ERROR, loc_from_token(p, p->prev), "expected '%s' after '%.*s'",
-                  token_type_pretty(type), (int)p->prev.len, p->prev.lex);
+                  lexer_get_token_pretty(type), (int)p->prev.len, p->prev.lex);
         p->in_panic = 1;
     }
 }
@@ -125,6 +126,12 @@ struct parser_ast_node *parser_parse(struct parser_context *p)
     return parse_program(p);
 }
 
+void parser_print(struct parser_ast_node *program)
+{
+    assert(program);
+    printf("PROGRAM\n");
+}
+
 void parser_init(struct parser_context *p, struct lexer_context *lexer, struct compiler_context *cc)
 {
     struct token t = TOKEN_INIT;
@@ -133,6 +140,5 @@ void parser_init(struct parser_context *p, struct lexer_context *lexer, struct c
     p->file = cc->filename;
     p->diag = &cc->diag;
     p->arena = &cc->arena;
-    p->getToken = token_next;
     p->current = t;
 }

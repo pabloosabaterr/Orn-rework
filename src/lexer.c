@@ -90,7 +90,7 @@ static const char *token_type_str(enum token_type type)
     return "UNKNOWN";
 }
 
-const char *token_type_pretty(enum token_type type)
+const char *lexer_get_token_pretty(enum token_type type)
 {
     switch (type) {
     case TK_SEMICOLON:
@@ -136,7 +136,7 @@ static inline int is_next(struct lexer_context *lexer, char c)
 }
 
 #define is_end(lexer) (is_next(lexer, '\0'))
-#define create_token(type, start, len)                                                             \
+#define create_token(type, start, len)  \
     ((struct token){ type, start, len, lexer->line, lexer->col - (int)(len) })
 
 static char advance(struct lexer_context *lexer)
@@ -476,7 +476,7 @@ void lexer_init(struct lexer_context *lexer, struct compiler_context *cc)
     lexer->col = 0;
 }
 
-struct token token_next(struct lexer_context *lexer)
+struct token lexer_get_next_token(struct lexer_context *lexer)
 {
     const char *start;
     char c;
@@ -602,12 +602,12 @@ struct token token_next(struct lexer_context *lexer)
     }
 }
 
-int dump_tokens(struct lexer_context *lexer)
+int lexer_dump_tokens(struct lexer_context *lexer)
 {
     struct token token;
     int errors = 0;
 
-    while ((token = token_next(lexer)).type != TK_EOF) {
+    while ((token = lexer_get_next_token(lexer)).type != TK_EOF) {
         if (token.type == TK_ERROR) {
             errors++;
             continue;
