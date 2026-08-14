@@ -39,7 +39,6 @@ enum node_type {
     NODE_OBJ,
     NODE_ENUM,
     NODE_VARIANT,
-    NODE_IMPORT,
 
     NODE_INT,
     NODE_FLOATING,
@@ -172,9 +171,6 @@ struct parser_ast_node {
             struct parser_ast_node *expr;
         } expr_stmt;
         struct {
-            struct parser_ast_node *expr;
-        } import_expr;
-        struct {
             struct parser_ast_node *val;
         } variant;
         struct {
@@ -246,6 +242,8 @@ struct parser_ast_node {
     };
 };
 
+#define PARSER_AST_NODE_INIT { .type = NODE_ERROR }
+
 struct parser_context {
     struct lexer_context *lexer;
     struct diag_context *diag;
@@ -253,6 +251,9 @@ struct parser_context {
 
     struct token current;
     struct token prev;
+
+    struct token token_queue[4];
+    size_t token_queue_nr;
 
     unsigned in_panic : 1;
 };

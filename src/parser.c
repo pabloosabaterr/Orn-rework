@@ -1,43 +1,72 @@
 #include "parser.h"
 #include "arena.h"
-#include "attrs.h"
-#include "compiler.h"
 #include "diagnostic.h"
 #include "arena.h"
 #include "lexer.h"
-#include "log.h"
 
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
+static struct token peek_at(struct parser_context *p, unsigned n)
+{
+    assert(n < 4);
+
+    while (p->token_queue_nr <= n)
+        p->token_queue[p->token_queue_nr++] = lexer_get_next_token(p->lexer);
+
+    return p->token_queue[n];
+}
+
+static struct token pop_token(struct parser_context *p)
+{
+    assert(p->token_queue_nr);
+
+    struct token poped = *p->token_queue;
+
+    for (size_t i = 1; i < p->token_queue_nr; i++) {
+       p->token_queue[i - 1] = p->token_queue[i];
+    }
+
+    p->token_queue_nr--;
+    return poped;
+}
+
+static struct token next_token(struct parser_context *p)
+{
+    return p->token_queue_nr ? pop_token(p) : lexer_get_next_token(p->lexer);
+}
+
 static struct token advance_token(struct parser_context *p)
 {
     if (p->current.type == TK_UNINIT)
-        p->current = lexer_get_next_token(p->lexer);
+        p->current = next_token(p);
 
     p->prev = p->current;
-    p->current = lexer_get_next_token(p->lexer);
+    p->current = next_token(p);
+
     return p->prev;
 }
 
-static int check_token(struct parser_context *p, enum token_type type)
+static int check_token_type(struct parser_context *p, enum token_type type)
 {
     return p->current.type == type;
 }
 
-static int check_and_advance(struct parser_context *p, enum token_type type)
+static int check_type_and_advance(struct parser_context *p, enum token_type type)
 {
-    if (!check_token(p, type))
+    if (!check_token_type(p, type))
         return 0;
     advance_token(p);
     return 1;
 }
 
-static struct source_location loc_from_token(struct token tok)
+static struct source_location loc_from_token(struct parser_context *p)
 {
+    struct token tok = p->prev;
     return (struct source_location){
+        .file = p->lexer->file,
         .line_start = tok.lex - tok.col,
         .line = tok.line,
         .col = tok.col,
@@ -45,17 +74,15 @@ static struct source_location loc_from_token(struct token tok)
     };
 }
 
-UNUSED
 static void expect_token(struct parser_context *p, enum token_type type)
 {
-    if (!check_and_advance(p, type) && !p->in_panic) {
-        diag_emit(p->diag, ERROR, loc_from_token(p->prev), "expected '%s' after '%.*s'",
+    if (!check_type_and_advance(p, type) && !p->in_panic) {
+        diag_emit(p->diag, ERROR, loc_from_token(p), "expected '%s' after '%.*s'",
                   lexer_get_token_pretty(type), (int)p->prev.len, p->prev.lex);
         p->in_panic = 1;
     }
 }
 
-UNUSED
 static struct parser_ast_node *create_node(struct parser_context *p, enum node_type type)
 {
    struct parser_ast_node *node = arena_alloc(p->arena, sizeof(struct parser_ast_node));
@@ -85,6 +112,57 @@ static int append_node_to_block(struct parser_context *p,
     return 0;
 }
 
+static struct parser_ast_node *parse_label(struct parser_context *p)
+{
+    advance_token(p);
+
+    if (!check_token_type(p, TK_ID)) {
+        expect_token(p, TK_ID);
+        return create_node(p, NODE_ERROR);
+    }
+
+    struct parser_ast_node *node = create_node(p, NODE_LABEL);
+    advance_token(p);
+
+    return node;
+}
+
+static struct parser_ast_node *parse_goto(struct parser_context *p)
+{
+    advance_token(p);
+    return create_node(p, NODE_ERROR);
+}
+static struct parser_ast_node *parse_loop_stmt(struct parser_context *p)
+{
+    advance_token(p);
+    return create_node(p, NODE_ERROR);
+}
+static struct parser_ast_node *parse_return(struct parser_context *p)
+{
+    advance_token(p);
+    return create_node(p, NODE_ERROR);
+}
+static struct parser_ast_node *parse_break(struct parser_context *p)
+{
+    advance_token(p);
+    return create_node(p, NODE_ERROR);
+}
+static struct parser_ast_node *parse_continue(struct parser_context *p)
+{
+    advance_token(p);
+    return create_node(p, NODE_ERROR);
+}
+static struct parser_ast_node *parse_binding(struct parser_context *p)
+{
+    advance_token(p);
+    return create_node(p, NODE_ERROR);
+}
+static struct parser_ast_node *parse_expr_stmt(struct parser_context *p)
+{
+    advance_token(p);
+    return create_node(p, NODE_ERROR);
+}
+
 /*
  * stmt = binding SEMI
  *      | label
@@ -95,9 +173,28 @@ static int append_node_to_block(struct parser_context *p,
  *      | CONTINUE SEMI
  *      | expr SEMI
  */
-static struct parser_ast_node *parse_stmt(struct parser_context *p UNUSED)
+static struct parser_ast_node *parse_stmt(struct parser_context *p)
 {
-    die("not done");
+    switch (p->current.type) {
+    case TK_HASH:     return parse_label(p);
+    case TK_GOTO:     return parse_goto(p);
+    case TK_LOOP:     return parse_loop_stmt(p);
+    case TK_RETURN:   return parse_return(p);
+    case TK_BREAK:    return parse_break(p);
+    case TK_CONTINUE: return parse_continue(p);
+    default:
+        if (p->current.type == TK_ID) {
+            switch (peek_at(p, 0).type) {
+            case TK_DECL:
+            case TK_WALRUS:
+            case TK_COLON:
+                return parse_binding(p);
+            default:
+                break;
+            }
+        }
+        return parse_expr_stmt(p);
+    }
 }
 
 /*
@@ -109,12 +206,11 @@ static struct parser_ast_node *parse_program(struct parser_context *p)
     advance_token(p);
 
     struct parser_ast_node *program = create_node(p, NODE_PROGRAM);
-    while(!check_token(p, TK_EOF)) {
+    while(!check_token_type(p, TK_EOF)) {
         struct parser_ast_node *stmt = parse_stmt(p);
 
         if (stmt)
             append_node_to_block(p, program, stmt);
-
     }
 
     return program;
@@ -129,6 +225,21 @@ void parser_print(struct parser_ast_node *program)
 {
     assert(program);
     printf("PROGRAM\n");
+
+    for (size_t i = 0; i < program->block.nr; i++) {
+        struct parser_ast_node *n = program->block.childs[i];
+        printf("\t");
+        switch (n->type) {
+        case NODE_LABEL:
+            printf("LABEL - id : %.*s\n", (int)n->tok.len, n->tok.lex);
+            break;
+        case NODE_ERROR:
+            printf("ERROR - lexeme : %.*s\n", (int)n->tok.len, n->tok.lex);
+            break;
+        default:
+            printf("DONT KNOW\n");
+        }
+    }
 }
 
 void parser_init(struct parser_context *p, struct lexer_context *lexer,

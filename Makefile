@@ -60,21 +60,9 @@ run: all
 san: clean
 	$(MAKE) DFLAGS="$(SAN_FLAGS)"
 
-san-test: san
-	UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
-	$(PROVE) --exec sh $(T)
-
-PROVE = prove
-T = $(wildcard tests/t[0-9]*.sh)
-
-test: all
-	$(PROVE) --exec sh $(T)
-
-vtest: all
-	$(PROVE) --exec sh --directives $(T)
-
-shtest: all
-	@for t in $(T); do echo "$$t"; sh "$$t" || exit 1; done
+test:
+	cd tests && \
+    sh runner.sh
 
 work:
 	grep -r "NEEDSWORK" src/ docs/src/NEEDSWORK.md --color=always

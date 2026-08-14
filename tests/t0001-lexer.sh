@@ -1,7 +1,9 @@
 #!/bin/sh
 
 # shellcheck disable=SC1091,SC2016,SC2034
+TDIR=$(pwd)
 . "$(dirname "$0")/test-lib.sh"
+setup_test_dir "$(basename "$0")" || exit 1
 
 test_expect_success 'basic tokenization' '
 	cat >input.orn <<-\EOF &&
@@ -9,7 +11,7 @@ test_expect_success 'basic tokenization' '
 	x := 42;
 	}
 	EOF
-	"$ORN" --dump-tokens input.orn >actual &&
+	orn --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
 	main [ID] - 1:0
 	:: [DECL] - 1:5
@@ -29,7 +31,7 @@ test_expect_success 'multi-character operators' '
 	cat >input.orn <<-\EOF &&
 	== != << >> <= >= && || :: := .. ...
 	EOF
-	"$ORN" --dump-tokens input.orn >actual &&
+	orn --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
 	== [CMP] - 1:0
 	!= [NEQ] - 1:3
@@ -52,7 +54,7 @@ test_expect_success 'single-character operators' '
 	cat >input.orn <<-\EOF &&
 	+ - * / % ~ ^ : . , ; #
 	EOF
-	"$ORN" --dump-tokens input.orn >actual &&
+	orn --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
 	+ [PLUS] - 1:0
 	- [MINUS] - 1:2
@@ -75,7 +77,7 @@ test_expect_success 'keywords are not identifiers' '
 	cat >input.orn <<-\EOF &&
 	if iff iffy ret retting
 	EOF
-	"$ORN" --dump-tokens input.orn >actual &&
+	orn --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
 	if [if] - 1:0
 	iff [ID] - 1:3
@@ -91,7 +93,7 @@ test_expect_success 'string and char literals' '
 	cat >input.orn <<-\INPUT &&
 	"hello" '\''c'\'' "world"
 	INPUT
-	"$ORN" --dump-tokens input.orn >actual &&
+	orn --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
 	"hello" [STRING] - 1:0
 	'\''c'\'' [CHAR] - 1:8
@@ -109,7 +111,7 @@ test_expect_success 'number literals' '
 	0o77 0O17
 	0b1010 0B11
 	EOF
-	"$ORN" --dump-tokens input.orn >actual &&
+	orn --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
 	0 [NUMBER] - 1:0
 	42 [NUMBER] - 1:2
@@ -132,7 +134,7 @@ test_expect_success 'dot dot is not float' '
 	cat >input.orn <<-\EOF &&
 	1..10
 	EOF
-	"$ORN" --dump-tokens input.orn >actual &&
+	orn --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
 	1 [NUMBER] - 1:0
 	.. [RANGE] - 1:1
@@ -147,7 +149,7 @@ test_expect_success 'line comments are skipped' '
 	x // this is a comment
 	y
 	EOF
-	"$ORN" --dump-tokens input.orn >actual &&
+	orn --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
 	x [ID] - 1:0
 	y [ID] - 2:0
@@ -161,7 +163,7 @@ test_expect_success 'block comments are skipped' '
 	x /* this is
 	a block comment */ y
 	EOF
-	"$ORN" --dump-tokens input.orn >actual &&
+	orn --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
 	x [ID] - 1:0
 	y [ID] - 2:19
@@ -172,8 +174,8 @@ test_expect_success 'block comments are skipped' '
 
 test_expect_success 'empty input produces no tokens' '
 	>input.orn &&
-	"$ORN" --dump-tokens input.orn >actual &&
-	cat > expect <<-\EOF &&
+	orn --dump-tokens input.orn >actual &&
+	cat >expect <<-\EOF &&
 	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual
@@ -181,7 +183,7 @@ test_expect_success 'empty input produces no tokens' '
 
 test_expect_success 'unexpected character reports error' '
 	echo "@" >input.orn &&
-	test_must_fail "$ORN" --dump-tokens input.orn >actual.out 2>actual.err &&
+	test_must_fail orn --dump-tokens input.orn >actual.out 2>actual.err &&
 	cat >expect.out <<-\EOF &&
 	Program compiled with 1 error
 	EOF
@@ -198,7 +200,7 @@ test_expect_success 'unexpected character reports error' '
 
 test_expect_success 'unterminated string reports error' '
 	printf "\"\\n" >input.orn &&
-	test_must_fail "$ORN" --dump-tokens input.orn >actual.out 2>actual.err &&
+	test_must_fail orn --dump-tokens input.orn >actual.out 2>actual.err &&
 	cat >expect.out <<-\EOF &&
 	Program compiled with 1 error
 	EOF
@@ -215,7 +217,7 @@ test_expect_success 'unterminated string reports error' '
 
 test_expect_success 'unterminated block comment reports error' '
 	echo "/* oops" >input.orn &&
-	test_must_fail "$ORN" --dump-tokens input.orn >actual.out 2>actual.err &&
+	test_must_fail orn --dump-tokens input.orn >actual.out 2>actual.err &&
 	cat >expect.out <<-\EOF &&
 	Program compiled with 1 error
 	EOF
@@ -230,11 +232,11 @@ test_expect_success 'unterminated block comment reports error' '
 	test_cmp expect.err actual.err
 '
 
-test_expect_success 'undescore name is gets correctly tokenized' '
+test_expect_success 'underscore name gets correctly tokenized' '
 	cat >input.orn <<-\EOF &&
 	_foo :: () {}
 	EOF
-	"$ORN" --dump-tokens input.orn >actual &&
+	orn --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
 	_foo [ID] - 1:0
 	:: [DECL] - 1:5
@@ -249,7 +251,7 @@ test_expect_success 'undescore name is gets correctly tokenized' '
 
 test_expect_success 'error after number prefix with no digits' '
 	echo "0x" >input.orn &&
-	test_must_fail "$ORN" --dump-tokens input.orn >actual.out 2>actual.err &&
+	test_must_fail orn --dump-tokens input.orn >actual.out 2>actual.err &&
 	cat >expect.out <<-\EOF &&
 	Program compiled with 1 error
 	EOF
@@ -262,12 +264,11 @@ test_expect_success 'error after number prefix with no digits' '
 	EOF
 	test_cmp expect.out actual.out &&
 	test_cmp expect.err actual.err
-
 '
 
 test_expect_success 'invalid escape sequence in char literal' '
 	echo "'\''\\q'\''" >input.orn &&
-	test_must_fail "$ORN" --dump-tokens input.orn >actual.out 2>actual.err &&
+	test_must_fail orn --dump-tokens input.orn >actual.out 2>actual.err &&
 	cat >expect.out <<-\EOF &&
 	Program compiled with 1 error
 	EOF
@@ -284,7 +285,7 @@ test_expect_success 'invalid escape sequence in char literal' '
 
 test_expect_success 'hex escape without digits in char literal' '
 	echo "'\''\\x'\''" >input.orn &&
-	test_must_fail "$ORN" --dump-tokens input.orn >actual.out 2>actual.err &&
+	test_must_fail orn --dump-tokens input.orn >actual.out 2>actual.err &&
 	cat >expect.out <<-\EOF &&
 	Program compiled with 1 error
 	EOF
@@ -299,7 +300,7 @@ test_expect_success 'hex escape without digits in char literal' '
 	test_cmp expect.err actual.err
 '
 
-test_expect_success 'undescore name is gets correctly tokenized' '
+test_expect_success 'escape sequences in char literals' '
 	cat >input.orn <<-\EOF &&
 	'\''\n'\''
 	'\''\t'\''
@@ -309,7 +310,7 @@ test_expect_success 'undescore name is gets correctly tokenized' '
 	'\''\x41'\''
 	'\''\0'\''
 	EOF
-	"$ORN" --dump-tokens input.orn >actual &&
+	orn --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
 	'\''\n'\'' [CHAR] - 1:0
 	'\''\t'\'' [CHAR] - 2:0
