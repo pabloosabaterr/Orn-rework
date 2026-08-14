@@ -114,6 +114,7 @@ static int append_node_to_block(struct parser_context *p,
 
 static struct parser_ast_node *parse_label(struct parser_context *p)
 {
+    struct parser_ast_node *node;
     advance_token(p);
 
     if (!check_token_type(p, TK_ID)) {
@@ -121,17 +122,35 @@ static struct parser_ast_node *parse_label(struct parser_context *p)
         return create_node(p, NODE_ERROR);
     }
 
-    struct parser_ast_node *node = create_node(p, NODE_LABEL);
+    node = create_node(p, NODE_LABEL);
     advance_token(p);
 
     return node;
 }
 
+/*
+ * label = HASH ID
+ * GOTO label SEMI
+ */
 static struct parser_ast_node *parse_goto(struct parser_context *p)
 {
+    struct parser_ast_node *node;
+
     advance_token(p);
-    return create_node(p, NODE_ERROR);
+    expect_token(p, TK_HASH);
+
+    if (!check_token_type(p, TK_ID)) {
+        expect_token(p, TK_ID);
+        return create_node(p, NODE_ERROR);
+    }
+
+    node = create_node(p, NODE_GOTO);
+    advance_token(p);
+    expect_token(p, TK_SEMICOLON);
+
+    return node;
 }
+
 static struct parser_ast_node *parse_loop_stmt(struct parser_context *p)
 {
     advance_token(p);
@@ -224,22 +243,26 @@ struct parser_ast_node *parser_parse(struct parser_context *p)
 void parser_print(struct parser_ast_node *program)
 {
     assert(program);
-    printf("PROGRAM\n");
+    printf("[PROGRAM] {\n");
 
     for (size_t i = 0; i < program->block.nr; i++) {
         struct parser_ast_node *n = program->block.childs[i];
         printf("\t");
         switch (n->type) {
         case NODE_LABEL:
-            printf("LABEL - id : %.*s\n", (int)n->tok.len, n->tok.lex);
+            printf("[LABEL - id : %.*s]\n", (int)n->tok.len, n->tok.lex);
+            break;
+        case NODE_GOTO:
+            printf("[GOTO - to : %.*s]\n", (int)n->tok.len, n->tok.lex);
             break;
         case NODE_ERROR:
-            printf("ERROR - lexeme : %.*s\n", (int)n->tok.len, n->tok.lex);
+            printf("[ERROR - lexeme : %.*s]\n", (int)n->tok.len, n->tok.lex);
             break;
         default:
             printf("DONT KNOW\n");
         }
     }
+    printf("}\n");
 }
 
 void parser_init(struct parser_context *p, struct lexer_context *lexer,
