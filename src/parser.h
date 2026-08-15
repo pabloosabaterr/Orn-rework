@@ -271,6 +271,6 @@ void parser_free(struct parser_context *parser);
 /*
  * Print to stdout the Abtract Syntax Tree
  */
-void parser_print(struct parser_ast_node *program);
+void parser_print(struct parser_ast_node *program, size_t depth);
 
 #endif

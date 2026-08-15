@@ -26,7 +26,7 @@ static void orn_run_pipeline(struct compiler_context *cc)
      * it also for the ast printing.
      */
     if (cc->dump_ast) {
-        parser_print(program);
+        parser_print(program, 0);
         return;
     }
 }
