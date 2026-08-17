@@ -119,8 +119,7 @@ struct token {
 
 #define TOKEN_INIT { .type = TK_UNINIT }
 
-void lexer_init(struct lexer_context *ctx,
-                const struct source_file *file,
+void lexer_init(struct lexer_context *ctx, const struct source_file *file,
                 struct diag_context *diag);
 /*
  * Get the next token.

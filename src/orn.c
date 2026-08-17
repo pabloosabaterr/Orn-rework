@@ -26,20 +26,17 @@ static void orn_run_pipeline(struct compiler_context *cc)
      * it also for the ast printing.
      */
     if (cc->dump_ast) {
-        parser_print(program, 0);
+        parser_print(program);
         return;
     }
 }
 
-int orn_cmd_parse(int argc, char**argv, struct compiler_context *cc)
+int orn_cmd_parse(int argc, char **argv, struct compiler_context *cc)
 {
     int opts = -1;
 
-    struct option options[] = {
-        OPT_BOOL('t', "dump-tokens", &cc->dump_tokens),
-        OPT_BOOL('a', "dump-ast", &cc->dump_ast),
-        OPT_END()
-    };
+    struct option options[] = { OPT_BOOL('t', "dump-tokens", &cc->dump_tokens),
+                                OPT_BOOL('a', "dump-ast", &cc->dump_ast), OPT_END() };
 
     opts = parse_options(argc, argv, options);
 

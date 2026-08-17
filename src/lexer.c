@@ -137,7 +137,7 @@ static inline int is_next(struct lexer_context *lexer, char c)
 }
 
 #define is_end(lexer) (is_next(lexer, '\0'))
-#define create_token(type, start, len)  \
+#define create_token(type, start, len)                                                             \
     ((struct token){ type, start, len, lexer->line, lexer->col - (int)(len) })
 
 static char advance(struct lexer_context *lexer)
@@ -467,8 +467,7 @@ static struct token token_charlit(struct lexer_context *lexer, const char *start
     return create_token(TK_CHARLIT, start, (size_t)(lexer->current - start));
 }
 
-void lexer_init(struct lexer_context *ctx,
-                const struct source_file *file,
+void lexer_init(struct lexer_context *ctx, const struct source_file *file,
                 struct diag_context *diag)
 {
     ctx->file = file;

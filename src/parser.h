@@ -263,14 +263,14 @@ struct parser_context {
 /*
  * Initialice a given parser context
  */
-void parser_init(struct parser_context *ctx, struct lexer_context *lexer,
-                 struct arena *arena, struct diag_context *diag);
+void parser_init(struct parser_context *ctx, struct lexer_context *lexer, struct arena *arena,
+                 struct diag_context *diag);
 struct parser_ast_node *parser_parse(struct parser_context *parser);
 void parser_free(struct parser_context *parser);
 
 /*
  * Print to stdout the Abtract Syntax Tree
  */
-void parser_print(struct parser_ast_node *program, size_t depth);
+void parser_print(struct parser_ast_node *program);
 
 #endif

@@ -26,7 +26,7 @@ static struct token pop_token(struct parser_context *p)
     struct token poped = *p->token_queue;
 
     for (size_t i = 1; i < p->token_queue_nr; i++) {
-       p->token_queue[i - 1] = p->token_queue[i];
+        p->token_queue[i - 1] = p->token_queue[i];
     }
 
     p->token_queue_nr--;
@@ -86,20 +86,19 @@ static void expect_token(struct parser_context *p, enum token_type type)
 static struct parser_ast_node *create_node(struct parser_context *p, enum node_type type,
                                            struct token token)
 {
-   struct parser_ast_node *node = arena_alloc(p->arena, sizeof(struct parser_ast_node));
-   memset(node, 0, sizeof(struct parser_ast_node));
-   node->tok = token;
-   node->type = type;
+    struct parser_ast_node *node = arena_alloc(p->arena, sizeof(struct parser_ast_node));
+    memset(node, 0, sizeof(struct parser_ast_node));
+    node->tok = token;
+    node->type = type;
 
-   return node;
+    return node;
 }
 
 /*
  * Returns 1 on failing to append.
  * Realloc's if the block list is full.
  */
-static int append_node_to_block(struct parser_context *p,
-                                struct parser_ast_node *block,
+static int append_node_to_block(struct parser_context *p, struct parser_ast_node *block,
                                 struct parser_ast_node *to_append)
 {
     if (block->type != NODE_PROGRAM && block->type != NODE_BLOCK)
@@ -163,7 +162,8 @@ static struct parser_ast_node *parse_block(struct parser_context *p)
     expect_token(p, TK_LBRACE);
 
     while (p->current.type != TK_RBRACE)
-        append_node_to_block(p, block, parse_stmt(p));
+        if (append_node_to_block(p, block, parse_stmt(p)))
+            die("parse_block: failed appending");
 
     expect_token(p, TK_RBRACE);
     return block;
@@ -174,8 +174,18 @@ static struct parser_ast_node *parse_block(struct parser_context *p)
  */
 static struct parser_ast_node *parse_loop_stmt(struct parser_context *p)
 {
-    struct parser_ast_node *node = create_node(p, NODE_ERROR, p->current);
-    advance_token(p);
+    expect_token(p, TK_LOOP);
+    struct parser_ast_node *node = create_node(p, NODE_LOOP, p->current);
+    node->loop.head = NULL;
+    node->loop.var = NULL;
+    node->loop.body = NULL;
+
+    /* parse condition */
+    if (!check_token_type(p, TK_LBRACE)) {
+        assert(0 && "no conditions");
+    }
+
+    node->loop.body = parse_block(p);
     return node;
 }
 static struct parser_ast_node *parse_return(struct parser_context *p)
@@ -223,13 +233,20 @@ static struct parser_ast_node *parse_expr_stmt(struct parser_context *p)
 static struct parser_ast_node *parse_stmt(struct parser_context *p)
 {
     switch (p->current.type) {
-    case TK_HASH:     return parse_label(p);
-    case TK_GOTO:     return parse_goto(p);
-    case TK_LOOP:     return parse_loop_stmt(p);
-    case TK_RETURN:   return parse_return(p);
-    case TK_BREAK:    return parse_break(p);
-    case TK_CONTINUE: return parse_continue(p);
-    case TK_LBRACE: return parse_block(p);
+    case TK_HASH:
+        return parse_label(p);
+    case TK_GOTO:
+        return parse_goto(p);
+    case TK_LOOP:
+        return parse_loop_stmt(p);
+    case TK_RETURN:
+        return parse_return(p);
+    case TK_BREAK:
+        return parse_break(p);
+    case TK_CONTINUE:
+        return parse_continue(p);
+    case TK_LBRACE:
+        return parse_block(p);
     default:
         if (p->current.type == TK_ID) {
             switch (peek_at(p, 0).type) {
@@ -256,7 +273,7 @@ static struct parser_ast_node *parse_program(struct parser_context *p)
     advance_token(p);
 
     program = create_node(p, NODE_PROGRAM, program_tok);
-    while(!check_token_type(p, TK_EOF)) {
+    while (!check_token_type(p, TK_EOF)) {
         struct parser_ast_node *stmt = parse_stmt(p);
 
         if (stmt)
@@ -271,43 +288,58 @@ struct parser_ast_node *parser_parse(struct parser_context *p)
     return parse_program(p);
 }
 
-void parser_print(struct parser_ast_node *program, size_t depth)
+static void print_indent(size_t depth)
 {
-    assert(program);
-    if (!depth)
-        printf("[PROGRAM] {\n");
-
-    for (size_t i = 0; i < program->block.nr; i++) {
-        struct parser_ast_node *n = program->block.childs[i];
-        for (size_t j = 0; j <= depth; j++)
-            printf("    ");
-        switch (n->type) {
-        case NODE_LABEL:
-            printf("[LABEL - id : %.*s]\n", (int)n->tok.len, n->tok.lex);
-            break;
-        case NODE_GOTO:
-            printf("[GOTO - to : %.*s]\n", (int)n->tok.len, n->tok.lex);
-            break;
-        case NODE_BLOCK:
-            printf("[BLOCK - nodes : %d - alloc'd : %d - wasted : %lu bytes]\n",
-                   (int)n->block.nr, (int)n->block.alloc,
-                   (int)(n->block.alloc - n->block.nr) * sizeof(struct parser_ast_node) / 8);
-            parser_print(n, depth+1);
-            break;
-        case NODE_ERROR:
-            printf("[ERROR - lexeme : %.*s]\n", (int)n->tok.len, n->tok.lex);
-            break;
-        default:
-            printf("DONT KNOW\n");
-        }
-    }
-    for (size_t j = 0; j < depth; j++)
+    for (size_t i = 0; i < depth; i++)
         printf("    ");
-    printf("}\n");
 }
 
-void parser_init(struct parser_context *p, struct lexer_context *lexer,
-                struct arena *arena, struct diag_context *diag)
+static void print_node(struct parser_ast_node *n, size_t depth)
+{
+    if (!n)
+        return;
+
+    print_indent(depth);
+
+    switch (n->type) {
+    case NODE_PROGRAM:
+    case NODE_BLOCK:
+        printf("%s\n", n->type == NODE_PROGRAM ? "[PROGRAM]" : "[BLOCK]");
+        for (size_t i = 0; i < n->block.nr; i++)
+            print_node(n->block.childs[i], depth + 1);
+        break;
+
+    case NODE_LOOP:
+        printf("[LOOP]\n");
+        print_node(n->loop.head, depth + 1);
+        print_node(n->loop.body, depth + 1);
+        break;
+
+    case NODE_LABEL:
+        printf("[LABEL]  name='%.*s'\n", (int)n->tok.len, n->tok.lex);
+        break;
+
+    case NODE_GOTO:
+        printf("[GOTO]  target='%.*s'\n", (int)n->tok.len, n->tok.lex);
+        break;
+
+    case NODE_ERROR:
+        printf("[ERROR]  lexeme='%.*s'\n", (int)n->tok.len, n->tok.lex);
+        break;
+
+    default:
+        printf("[?? type=%d]\n", (int)n->type);
+    }
+}
+
+void parser_print(struct parser_ast_node *program)
+{
+    assert(program);
+    print_node(program, 0);
+}
+
+void parser_init(struct parser_context *p, struct lexer_context *lexer, struct arena *arena,
+                 struct diag_context *diag)
 {
     struct token t = TOKEN_INIT;
 
