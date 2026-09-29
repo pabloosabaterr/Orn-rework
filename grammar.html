@@ -52,7 +52,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dac49c30.js";
+            window.path_to_searchindex_js = "searchindex-cdea82c5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-73e76ee1.js"></script>
@@ -194,93 +194,88 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <pre><code>program    = stmt*
+                        <h1 id="grammar"><a class="header" href="#grammar">Grammar</a></h1>
+<p>This is the grammar of the Orn. Everything in Orn is a range: there are no
+built-in types, only sets of integer values written as <code>lo..hi</code> (both ends
+inclusive). Names like <code>u8</code> or <code>bool</code> are ordinary constant bindings provided by
+the standard library.</p>
+<pre><code class="language-ebnf">program        = { stmt } ;
 
-stmt       = binding SEMI
-           | label
-           | GOTO label SEMI
-           | loop_stmt
-           | RET expr? SEMI
-           | BREAK SEMI
-           | CONTINUE SEMI
-           | expr SEMI
+stmt           = binding ";"
+               | "ret" [ expr ] ";"
+               | expr ";"
+               | block ;
 
-label      = HASH ID
+(* The last expression of a block, without ";", is the block's value. *)
+block          = "{" { stmt } [ expr ] "}" ;
 
-block      = LBRACE stmt* RBRACE
+(*
+ *   x :: expr          compile-time constant (aliases, functions)
+ *   x := expr          runtime binding, range inferred
+ *   x : T = expr       runtime binding, range declared
+ *   x : T : expr       compile-time constant, range declared
+ *
+ * T is an expression evaluated at compile time, so a range or an alias
+ * both work: x : 0..255 = 3, x : u8 = 3.
+ * Bindings are immutable in the MVP.
+ *)
+binding        = ID "::" expr
+               | ID ":=" expr
+               | ID ":" expr ( "=" | ":" ) expr ;
 
-loop_stmt  = LOOP (ID WALRUS expr_nb | expr_nb)? block
+(* A function is an expression; its name comes from the binding. *)
+fn_expr        = "(" [ param { "," param } [ "," ] ] ")" [ expr ] block ;
+param          = ID ":" expr ;
 
-binding    = ID DECL expr
-           | ID WALRUS expr
-           | ID COLON expr (DECL expr | EQ expr)?
+if_expr        = "if" expr block [ "else" ( if_expr | block ) ] ;
 
-fn_expr    = params expr? block?
-params     = LPAREN (param (COMMA param)* COMMA?)? RPAREN
-param      = ID COLON SPREAD? expr
+expr           = bound ;
 
-member     = DOT? binding SEMI
-obj_lit    = OBJ LBRACE member* RBRACE
-enum_lit   = ENUM LBRACE (variant (COMMA variant)* COMMA?)? member* RBRACE
-variant    = ID (EQ expr)?
+(*
+ * Runtime bound: checks the value and narrows it.
+ * The else block must leave (ret) or yield a value inside the range.
+ *)
+bound          = range [ "in" range "else" block ] ;
 
-if_expr    = IF expr_nb block (ELSE (if_expr | block))?
+range          = logic_or [ ".." logic_or ] ;
+logic_or       = logic_and { "||" logic_and } ;
+logic_and      = equality { "&amp;&amp;" equality } ;
 
-expr       = assign
-assign     = range (assign_op assign)?
-assign_op  = EQ | PLUSEQ | MINUSEQ | STAREQ | SLASHEQ | MODEQ
-range      = logic_or (RANGE logic_or)?
-logic_or   = logic_and (OR logic_and)*
-logic_and  = equality (AND equality)*
-equality   = relational ((CMP | NEQ) relational)*
-relational = bit_or ((LT | GT | LE | GE) bit_or)*
-bit_or     = bit_xor (PIPE bit_xor)*
-bit_xor    = bit_and (CARET bit_and)*
-bit_and    = shift (AMP shift)*
-shift      = additive ((LSHIFT | RSHIFT) additive)*
-additive   = multiplicative ((PLUS | MINUS) multiplicative)*
-multiplicative = unary ((STAR | SLASH | MOD) unary)*
+(* Comparisons do not chain: a &lt; b &lt; c is an error. *)
+equality       = relational [ ( "==" | "!=" ) relational ] ;
+relational     = additive [ ( "&lt;" | "&gt;" | "&lt;=" | "&gt;=" ) additive ] ;
 
-unary      = (MINUS | NOT | TILDE | STAR | AMP) unary
-           | LPAREN expr RPAREN unary
-           | LBRACKET expr RBRACKET unary
-           | postfix
+additive       = multiplicative { ( "+" | "-" ) multiplicative } ;
+multiplicative = unary { "*" unary } ;
 
-postfix    = primary suffix*
-suffix     = DOT ID
-           | DOT NUMBER
-           | LPAREN arg_list? RPAREN
-           | LBRACKET expr RBRACKET
-           | LBRACKET expr? COLON expr? RBRACKET
+unary          = ( "-" | "!" ) unary
+               | postfix ;
 
-primary    = literal
-           | ID
-           | primitive
-           | UNDERSCORE
-           | DOT ID
-           | LPAREN expr_list? RPAREN
-           | LBRACKET expr_list? RBRACKET
-           | fn_expr
-           | obj_lit
-           | enum_lit
-           | if_expr
-           | IMPORT STRINGLIT
+postfix        = primary { "(" [ arg_list ] ")" } ;
+arg_list       = expr { "," expr } [ "," ] ;
 
-literal    = NUMBER | FLOATING | STRINGLIT | CHARLIT
-           | TRUE | FALSE | NULL
+primary        = literal
+               | ID
+               | "(" expr ")"
+               | fn_expr
+               | if_expr ;
 
-primitive  = INT | UNS | FLT | DBL | BOL | CHR | STR | VOD | TPE
-
-arg_list   = arg (COMMA arg)* COMMA?
-arg        = (ID COLON)? expr
-expr_list  = expr (COMMA expr)* COMMA?
+literal        = NUMBER | HEX | OCTAL | BINARY | "true" | "false" ;
 </code></pre>
-<p>Everything that is on capital letters means Literal text:</p>
+<h2 id="tokens"><a class="header" href="#tokens">Tokens</a></h2>
 <ul>
-<li>UNS = “uns”</li>
-<li>LT = “&lt;”
-…</li>
+<li><code>NUMBER</code>: decimal integer, <code>[0-9]+</code></li>
+<li><code>HEX</code>: <code>0x[0-9a-fA-F]+</code></li>
+<li><code>OCTAL</code>: <code>0o[0-7]+</code></li>
+<li><code>BINARY</code>: <code>0b[01]+</code></li>
+<li><code>ID</code>: <code>[a-zA-Z_][a-zA-Z0-9_]*</code>, except keywords</li>
 </ul>
+<p>Keywords: <code>if</code>, <code>else</code>, <code>ret</code>, <code>in</code>, <code>true</code>, <code>false</code>.</p>
+<p>Reserved for later: <code>loop</code>, <code>break</code>, <code>continue</code>, <code>obj</code>, <code>enum</code>, <code>import</code>.</p>
+<h2 id="not-in-the-mvp"><a class="header" href="#not-in-the-mvp">Not in the MVP</a></h2>
+<p>Division and modulo (they need the divisor to exclude 0), loops, reassignment,
+arrays, open ranges (<code>..9</code>), unions of ranges (<code>0..3 | 10..12</code>), <code>distinct</code>,
+floats, strings and pointers.</p>
 
                     </main>
 
@@ -327,7 +322,6 @@ expr_list  = expr (COMMA expr)* COMMA?
         <script src="book-a0b12cfe.js"></script>
 
         <!-- Custom JS scripts -->
-        <script src="theme/highlight-orn-c1778cdc.js"></script>
 
 
 

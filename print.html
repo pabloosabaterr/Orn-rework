@@ -53,7 +53,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dac49c30.js";
+            window.path_to_searchindex_js = "searchindex-cdea82c5.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-73e76ee1.js"></script>
@@ -200,108 +200,145 @@
 <a href="https://github.com/pabloosabaterr/Orn-rework">Orn</a> programming language.</p>
 <blockquote class="blockquote-tag blockquote-tag-note">
 <p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
-<p>For bugs or missings in this book please report an issue in the
-<a href="https://github.com/pabloosabaterr/Orn-rework/issues">Github repo</a></p>
+<p>For bugs or missing content in this book please open an issue in the
+<a href="https://github.com/pabloosabaterr/Orn-rework/issues">GitHub repo</a>.</p>
 </blockquote>
 <blockquote class="blockquote-tag blockquote-tag-warning">
 <p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
-<p>Orn is currently being designed and developed, so it can be that some
-of the syntax in this book it is not implemented yet, but it is intended to
-be.</p>
+<p>Orn is being designed and developed. Some of the syntax in this book may not
+be implemented yet.</p>
 </blockquote>
 <h2 id="what-is-orn"><a class="header" href="#what-is-orn">What is Orn?</a></h2>
-<p>Orn is a language designed for quick sketching while preserving caracteristics
-of system languages.</p>
-<p>The idea is to be as minimal as possible while keeping the maximum expresiveness.</p>
-<div style="break-before: page; page-break-before: always;"></div>
-<h1 id="grammar"><a href="#grammar" class="header">Grammar</a></h1>
-<pre><code>program    = stmt*
-
-stmt       = binding SEMI
-           | label
-           | GOTO label SEMI
-           | loop_stmt
-           | RET expr? SEMI
-           | BREAK SEMI
-           | CONTINUE SEMI
-           | expr SEMI
-
-label      = HASH ID
-
-block      = LBRACE stmt* RBRACE
-
-loop_stmt  = LOOP (ID WALRUS expr_nb | expr_nb)? block
-
-binding    = ID DECL expr
-           | ID WALRUS expr
-           | ID COLON expr (DECL expr | EQ expr)?
-
-fn_expr    = params expr? block?
-params     = LPAREN (param (COMMA param)* COMMA?)? RPAREN
-param      = ID COLON SPREAD? expr
-
-member     = DOT? binding SEMI
-obj_lit    = OBJ LBRACE member* RBRACE
-enum_lit   = ENUM LBRACE (variant (COMMA variant)* COMMA?)? member* RBRACE
-variant    = ID (EQ expr)?
-
-if_expr    = IF expr_nb block (ELSE (if_expr | block))?
-
-expr       = assign
-assign     = range (assign_op assign)?
-assign_op  = EQ | PLUSEQ | MINUSEQ | STAREQ | SLASHEQ | MODEQ
-range      = logic_or (RANGE logic_or)?
-logic_or   = logic_and (OR logic_and)*
-logic_and  = equality (AND equality)*
-equality   = relational ((CMP | NEQ) relational)*
-relational = bit_or ((LT | GT | LE | GE) bit_or)*
-bit_or     = bit_xor (PIPE bit_xor)*
-bit_xor    = bit_and (CARET bit_and)*
-bit_and    = shift (AMP shift)*
-shift      = additive ((LSHIFT | RSHIFT) additive)*
-additive   = multiplicative ((PLUS | MINUS) multiplicative)*
-multiplicative = unary ((STAR | SLASH | MOD) unary)*
-
-unary      = (MINUS | NOT | TILDE | STAR | AMP) unary
-           | LPAREN expr RPAREN unary
-           | LBRACKET expr RBRACKET unary
-           | postfix
-
-postfix    = primary suffix*
-suffix     = DOT ID
-           | DOT NUMBER
-           | LPAREN arg_list? RPAREN
-           | LBRACKET expr RBRACKET
-           | LBRACKET expr? COLON expr? RBRACKET
-
-primary    = literal
-           | ID
-           | primitive
-           | UNDERSCORE
-           | DOT ID
-           | LPAREN expr_list? RPAREN
-           | LBRACKET expr_list? RBRACKET
-           | fn_expr
-           | obj_lit
-           | enum_lit
-           | if_expr
-           | IMPORT STRINGLIT
-
-literal    = NUMBER | FLOATING | STRINGLIT | CHARLIT
-           | TRUE | FALSE | NULL
-
-primitive  = INT | UNS | FLT | DBL | BOL | CHR | STR | VOD | TPE
-
-arg_list   = arg (COMMA arg)* COMMA?
-arg        = (ID COLON)? expr
-expr_list  = expr (COMMA expr)* COMMA?
+<p>Orn is a systems language where every type is a range. Instead of choosing
+between <code>int</code>, <code>u8</code> or <code>bool</code>, a value is described by the integers it can
+hold, written <code>lo..hi</code> with both ends inclusive.</p>
+<pre><code>age : 0..150 = 30;
 </code></pre>
-<p>Everything that is on capital letters means Literal text:</p>
+<p>The compiler keeps two ranges for every value:</p>
 <ul>
-<li>UNS = “uns”</li>
-<li>LT = “&lt;”
-…</li>
+<li>The <strong>declared range</strong> fixes how the value is stored. It never changes.</li>
+<li>The <strong>known range</strong> is what the compiler can prove at each point of the
+program. Comparisons make it smaller.</li>
 </ul>
+<pre><code>classify :: (i: 0..1000) 0..2 {
+    if i &lt; 10 {
+        // known range of i: 0..9
+        0
+    } else if i &lt; 100 {
+        // known range of i: 10..99
+        1
+    } else {
+        // known range of i: 100..1000
+        2
+    }
+};
+</code></pre>
+<h2 id="types-are-aliases"><a class="header" href="#types-are-aliases">Types are aliases</a></h2>
+<p>The usual type names are ordinary constant bindings in the standard library:</p>
+<pre><code>u8   :: 0..255;
+i32  :: -2147483648..2147483647;
+bool :: 0..1;
+</code></pre>
+<p><code>u8</code> and <code>0..255</code> are the same thing. A value can be passed wherever the
+expected range contains its own.</p>
+<h2 id="no-silent-overflow"><a class="header" href="#no-silent-overflow">No silent overflow</a></h2>
+<p>Arithmetic follows the ranges of its operands. Adding two <code>u8</code> gives <code>0..510</code>,
+and storing that in a <code>u8</code> is a compile error. Wrapping or saturating has to be
+asked for explicitly.</p>
+<p>When a value comes from outside and its range is unknown, <code>in</code> checks it at
+runtime and narrows it:</p>
+<pre><code>age :: (n: -32768..32767) 0..150 {
+    n in 0..150 else { ret 0; }
+};
+</code></pre>
+<h2 id="limits"><a class="header" href="#limits">Limits</a></h2>
+<p>Ranges are checked with interval arithmetic, which treats operands as
+independent. Some correct programs are rejected: <code>x * x</code> with <code>x : -3..3</code> is
+<code>-9..9</code>, not <code>0..9</code>. The <code>examples/errors</code> folder in the repository collects
+these cases.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="grammar"><a class="header" href="#grammar">Grammar</a></h1>
+<p>This is the grammar of the Orn. Everything in Orn is a range: there are no
+built-in types, only sets of integer values written as <code>lo..hi</code> (both ends
+inclusive). Names like <code>u8</code> or <code>bool</code> are ordinary constant bindings provided by
+the standard library.</p>
+<pre><code class="language-ebnf">program        = { stmt } ;
+
+stmt           = binding ";"
+               | "ret" [ expr ] ";"
+               | expr ";"
+               | block ;
+
+(* The last expression of a block, without ";", is the block's value. *)
+block          = "{" { stmt } [ expr ] "}" ;
+
+(*
+ *   x :: expr          compile-time constant (aliases, functions)
+ *   x := expr          runtime binding, range inferred
+ *   x : T = expr       runtime binding, range declared
+ *   x : T : expr       compile-time constant, range declared
+ *
+ * T is an expression evaluated at compile time, so a range or an alias
+ * both work: x : 0..255 = 3, x : u8 = 3.
+ * Bindings are immutable in the MVP.
+ *)
+binding        = ID "::" expr
+               | ID ":=" expr
+               | ID ":" expr ( "=" | ":" ) expr ;
+
+(* A function is an expression; its name comes from the binding. *)
+fn_expr        = "(" [ param { "," param } [ "," ] ] ")" [ expr ] block ;
+param          = ID ":" expr ;
+
+if_expr        = "if" expr block [ "else" ( if_expr | block ) ] ;
+
+expr           = bound ;
+
+(*
+ * Runtime bound: checks the value and narrows it.
+ * The else block must leave (ret) or yield a value inside the range.
+ *)
+bound          = range [ "in" range "else" block ] ;
+
+range          = logic_or [ ".." logic_or ] ;
+logic_or       = logic_and { "||" logic_and } ;
+logic_and      = equality { "&amp;&amp;" equality } ;
+
+(* Comparisons do not chain: a &lt; b &lt; c is an error. *)
+equality       = relational [ ( "==" | "!=" ) relational ] ;
+relational     = additive [ ( "&lt;" | "&gt;" | "&lt;=" | "&gt;=" ) additive ] ;
+
+additive       = multiplicative { ( "+" | "-" ) multiplicative } ;
+multiplicative = unary { "*" unary } ;
+
+unary          = ( "-" | "!" ) unary
+               | postfix ;
+
+postfix        = primary { "(" [ arg_list ] ")" } ;
+arg_list       = expr { "," expr } [ "," ] ;
+
+primary        = literal
+               | ID
+               | "(" expr ")"
+               | fn_expr
+               | if_expr ;
+
+literal        = NUMBER | HEX | OCTAL | BINARY | "true" | "false" ;
+</code></pre>
+<h2 id="tokens"><a class="header" href="#tokens">Tokens</a></h2>
+<ul>
+<li><code>NUMBER</code>: decimal integer, <code>[0-9]+</code></li>
+<li><code>HEX</code>: <code>0x[0-9a-fA-F]+</code></li>
+<li><code>OCTAL</code>: <code>0o[0-7]+</code></li>
+<li><code>BINARY</code>: <code>0b[01]+</code></li>
+<li><code>ID</code>: <code>[a-zA-Z_][a-zA-Z0-9_]*</code>, except keywords</li>
+</ul>
+<p>Keywords: <code>if</code>, <code>else</code>, <code>ret</code>, <code>in</code>, <code>true</code>, <code>false</code>.</p>
+<p>Reserved for later: <code>loop</code>, <code>break</code>, <code>continue</code>, <code>obj</code>, <code>enum</code>, <code>import</code>.</p>
+<h2 id="not-in-the-mvp"><a class="header" href="#not-in-the-mvp">Not in the MVP</a></h2>
+<p>Division and modulo (they need the divisor to exclude 0), loops, reassignment,
+arrays, open ranges (<code>..9</code>), unions of ranges (<code>0..3 | 10..12</code>), <code>distinct</code>,
+floats, strings and pointers.</p>
 
                     </main>
 
@@ -342,7 +379,6 @@ expr_list  = expr (COMMA expr)* COMMA?
         <script src="book-a0b12cfe.js"></script>
 
         <!-- Custom JS scripts -->
-        <script src="theme/highlight-orn-c1778cdc.js"></script>
 
         <script>
         window.addEventListener('load', function() {
