@@ -1,9 +1,11 @@
-loop {
-	n := 10;
-	{
-	hello :: 10;
-	}
-	loop {
-		a
-	}
-}
+u8 :: 0..255;
+
+// The result range is exact: 0..255 + 0..255 = 0..510.
+sum :: (a: u8, b: u8) 0..510 {
+    a + b
+};
+
+// A declared range only needs to contain what the body can produce.
+twice :: (x: 0..100) u8 {
+    x * 2
+};

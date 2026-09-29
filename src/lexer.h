@@ -21,16 +21,6 @@ enum token_type {
     TK_STRINGLIT,
     TK_CHARLIT,
 
-    TK_IN,
-    TK_UN,
-    TK_FL,
-    TK_DB,
-    TK_BL,
-    TK_CH,
-    TK_ST,
-    TK_VD,
-    TK_TP,
-
     TK_OBJ,
     TK_ENUM,
     TK_IF,
@@ -39,11 +29,10 @@ enum token_type {
     TK_RETURN,
     TK_BREAK,
     TK_CONTINUE,
-    TK_GOTO,
     TK_IMPORT,
+    TK_IN, /* runtime bound: x in 0..9 else { ... } */
     TK_TRUE,
     TK_FALSE,
-    TK_NULL,
 
     TK_LPAREN,
     TK_RPAREN,
@@ -56,7 +45,6 @@ enum token_type {
     TK_DOT,
     TK_COLON,
     TK_UNDERSCORE,
-    TK_HASH,
 
     TK_DECL,
     TK_WALRUS,

@@ -1,0 +1,3 @@
+is_digit :: (c: char) bool <-> c in 48..57 {
+    c >= 48 && c <= 57
+};

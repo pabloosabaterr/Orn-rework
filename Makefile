@@ -65,7 +65,7 @@ test:
     sh runner.sh
 
 work:
-	grep -r "NEEDSWORK" src/ docs/src/NEEDSWORK.md --color=always
+	grep -rn "NEEDSWORK" src/ --color=always
 
 clean:
 	rm -rf build/
@@ -74,5 +74,4 @@ clean:
 
 .DELETE_ON_ERROR:
 FORCE:
-.PHONY: all run test vtest shtest san san-test format check-format \
-	work clean FORCE
+.PHONY: all run test san work clean FORCE

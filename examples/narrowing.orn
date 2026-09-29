@@ -1,0 +1,26 @@
+// Comparisons against constants narrow the range inside each branch.
+
+classify :: (i: 0..1000) 0..2 {
+    if i < 10 {
+        // i : 0..9
+        0
+    } else if i < 100 {
+        // i : 10..99
+        1
+    } else {
+        // i : 100..1000
+        2
+    }
+};
+
+// Every branch fits in 0..100, so the function type checks.
+limit :: (x: -1000..1000) 0..100 {
+    if x < 0 {
+        0
+    } else if x > 100 {
+        100
+    } else {
+        // x : 0..100
+        x
+    }
+};

@@ -1,4 +1,4 @@
-# !/bin/sh
+#!/bin/sh
 
 total_passed=0
 total_fail=0
@@ -13,9 +13,9 @@ do
 
     line=$(printf "%s" "$output" | grep '^passed:')
 
-    p=$(echo "$line" | awk '{print $2}' | cut -d/ -f1)
-    f=$(echo "$line" | awk '{print $4}')
-    b=$(echo "$line" | awk '{print $7}')
+    p=$(printf "%s\n" "$output" | grep '^passed:' | awk '{print $2}' | cut -d/ -f1)
+    f=$(printf "%s\n" "$output" | grep '^failed:' | awk '{print $2}')
+    b=$(printf "%s\n" "$output" | grep '^known bugs:' | awk '{print $3}')
 
     passed=$((passed + p))
     failed=$((failed + f))

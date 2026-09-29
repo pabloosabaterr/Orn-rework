@@ -1,7 +1,6 @@
 #include "parser.h"
 #include "arena.h"
 #include "diagnostic.h"
-#include "arena.h"
 #include "lexer.h"
 
 #include <assert.h>
@@ -112,45 +111,6 @@ static int append_node_to_block(struct parser_context *p, struct parser_ast_node
     return 0;
 }
 
-static struct parser_ast_node *parse_label(struct parser_context *p)
-{
-    struct parser_ast_node *node;
-    advance_token(p);
-
-    if (!check_token_type(p, TK_ID)) {
-        expect_token(p, TK_ID);
-        return create_node(p, NODE_ERROR, p->current);
-    }
-
-    node = create_node(p, NODE_LABEL, p->current);
-    advance_token(p);
-
-    return node;
-}
-
-/*
- * label = HASH ID
- * GOTO label SEMI
- */
-static struct parser_ast_node *parse_goto(struct parser_context *p)
-{
-    struct parser_ast_node *node;
-
-    advance_token(p);
-    expect_token(p, TK_HASH);
-
-    if (!check_token_type(p, TK_ID)) {
-        expect_token(p, TK_ID);
-        return create_node(p, NODE_ERROR, p->current);
-    }
-
-    node = create_node(p, NODE_GOTO, p->current);
-    advance_token(p);
-    expect_token(p, TK_SEMICOLON);
-
-    return node;
-}
-
 static struct parser_ast_node *parse_stmt(struct parser_context *p);
 
 /*
@@ -169,38 +129,7 @@ static struct parser_ast_node *parse_block(struct parser_context *p)
     return block;
 }
 
-/*
- * loop_stmt  = LOOP (ID WALRUS expr_nb | expr_nb)? block
- */
-static struct parser_ast_node *parse_loop_stmt(struct parser_context *p)
-{
-    expect_token(p, TK_LOOP);
-    struct parser_ast_node *node = create_node(p, NODE_LOOP, p->current);
-    node->loop.head = NULL;
-    node->loop.var = NULL;
-    node->loop.body = NULL;
-
-    /* parse condition */
-    if (!check_token_type(p, TK_LBRACE)) {
-        assert(0 && "no conditions");
-    }
-
-    node->loop.body = parse_block(p);
-    return node;
-}
 static struct parser_ast_node *parse_return(struct parser_context *p)
-{
-    struct parser_ast_node *node = create_node(p, NODE_ERROR, p->current);
-    advance_token(p);
-    return node;
-}
-static struct parser_ast_node *parse_break(struct parser_context *p)
-{
-    struct parser_ast_node *node = create_node(p, NODE_ERROR, p->current);
-    advance_token(p);
-    return node;
-}
-static struct parser_ast_node *parse_continue(struct parser_context *p)
 {
     struct parser_ast_node *node = create_node(p, NODE_ERROR, p->current);
     advance_token(p);
@@ -221,30 +150,15 @@ static struct parser_ast_node *parse_expr_stmt(struct parser_context *p)
 
 /*
  * stmt = binding SEMI
- *      | label
- *      | GOTO label SEMI
- *      | loop_stmt
  *      | RET expr? SEMI
- *      | BREAK SEMI
- *      | CONTINUE SEMI
  *      | expr SEMI
  *      | block
  */
 static struct parser_ast_node *parse_stmt(struct parser_context *p)
 {
     switch (p->current.type) {
-    case TK_HASH:
-        return parse_label(p);
-    case TK_GOTO:
-        return parse_goto(p);
-    case TK_LOOP:
-        return parse_loop_stmt(p);
     case TK_RETURN:
         return parse_return(p);
-    case TK_BREAK:
-        return parse_break(p);
-    case TK_CONTINUE:
-        return parse_continue(p);
     case TK_LBRACE:
         return parse_block(p);
     default:
@@ -307,20 +221,6 @@ static void print_node(struct parser_ast_node *n, size_t depth)
         printf("%s\n", n->type == NODE_PROGRAM ? "[PROGRAM]" : "[BLOCK]");
         for (size_t i = 0; i < n->block.nr; i++)
             print_node(n->block.childs[i], depth + 1);
-        break;
-
-    case NODE_LOOP:
-        printf("[LOOP]\n");
-        print_node(n->loop.head, depth + 1);
-        print_node(n->loop.body, depth + 1);
-        break;
-
-    case NODE_LABEL:
-        printf("[LABEL]  name='%.*s'\n", (int)n->tok.len, n->tok.lex);
-        break;
-
-    case NODE_GOTO:
-        printf("[GOTO]  target='%.*s'\n", (int)n->tok.len, n->tok.lex);
         break;
 
     case NODE_ERROR:

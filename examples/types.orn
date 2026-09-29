@@ -1,0 +1,13 @@
+// Sketch of the standard library aliases.
+// There are no built-in types: every name here is just a range.
+
+u8   :: 0..255;
+u16  :: 0..65535;
+u32  :: 0..4294967295;
+i8   :: -128..127;
+i16  :: -32768..32767;
+i32  :: -2147483648..2147483647;
+
+bool :: 0..1;
+byte :: u8;
+char :: 0..0x10FFFF;

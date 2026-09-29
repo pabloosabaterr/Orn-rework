@@ -52,7 +52,7 @@ test_expect_success 'multi-character operators' '
 
 test_expect_success 'single-character operators' '
 	cat >input.orn <<-\EOF &&
-	+ - * / % ~ ^ : . , ; #
+	+ - * / % ~ ^ : . , ;
 	EOF
 	orn --dump-tokens input.orn >actual &&
 	cat >expect <<-\EOF &&
@@ -67,7 +67,6 @@ test_expect_success 'single-character operators' '
 	. [DOT] - 1:16
 	, [COMMA] - 1:18
 	; [SEMICOLON] - 1:20
-	# [HASH] - 1:22
 	Program compiled with 0 errors
 	EOF
 	test_cmp expect actual

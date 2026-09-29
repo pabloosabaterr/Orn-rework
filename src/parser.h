@@ -15,52 +15,26 @@ enum node_type {
     NODE_BINDING,
 
     NODE_BLOCK,
-    NODE_LOOP,
     NODE_RETURN,
-    NODE_BREAK,
-    NODE_CONTINUE,
-    NODE_LABEL,
-    NODE_GOTO,
     NODE_EXPR_STMT,
 
     NODE_IF,
     NODE_BINARY,
     NODE_UNARY,
-    NODE_ASSIGN,
     NODE_CALL,
-    NODE_ARG,
-    NODE_INDEX,
-    NODE_MEMBER,
-    NODE_CAST_OR_CALL,
-    NODE_CAST,
 
     NODE_FN,
     NODE_PARAM,
-    NODE_OBJ,
-    NODE_ENUM,
-    NODE_VARIANT,
 
     NODE_INT,
-    NODE_FLOATING,
-    NODE_STRING,
-    NODE_CHAR,
     NODE_BOOL,
-    NODE_NULL,
     NODE_ID,
-    NODE_PRIMITIVE,
-    NODE_HOLE,
-    NODE_DOT_ID,
-    NODE_TUPLE,
-    NODE_ARRAY,
-    NODE_TYPE_ARR,
 };
 
 enum op_type {
     OP_ADD,
     OP_SUB,
     OP_MUL,
-    OP_DIV,
-    OP_MOD,
     OP_EQ,
     OP_NEQ,
     OP_LT,
@@ -69,23 +43,9 @@ enum op_type {
     OP_GE,
     OP_AND,
     OP_OR,
-    OP_BIT_AND,
-    OP_BIT_OR,
-    OP_BIT_XOR,
-    OP_LSHIFT,
-    OP_RSHIFT,
     OP_RANGE,
     OP_NEG,
     OP_NOT,
-    OP_BIT_NOT,
-    OP_ADDR,
-    OP_DEREF,
-    OP_ASSIGN,
-    OP_PLUSEQ,
-    OP_MINUSEQ,
-    OP_STAREQ,
-    OP_SLASHEQ,
-    OP_MODEQ,
 };
 
 /*
@@ -113,13 +73,13 @@ struct parser_ast_node {
          *   set   set     1      X : T : expr
          *   set   set     0      X : T = expr
          *
-         * is_method is set for a member written with a leading dot.
+         * ann is an expression, so a range works as a type: X : 0..255 = 3
+         * and an alias is just a constant binding: u8 :: 0..255
          */
         struct {
             struct parser_ast_node *ann;
             struct parser_ast_node *init;
             unsigned is_const : 1;
-            unsigned is_method : 1;
         } binding;
 
         /* NODE_FN. The name, if any, belongs to the binding above. */
@@ -128,29 +88,7 @@ struct parser_ast_node {
             size_t nr_param;
             struct parser_ast_node *ret_type;
             struct parser_ast_node *body;
-            unsigned is_variadic : 1;
         } fn;
-
-        /*
-         * NODE_OBJ, NODE_ENUM, NODE_TUPLE, NODE_ARRAY
-         *
-         * An enum holds its variants first, then its members.
-         */
-        struct {
-            struct parser_ast_node **items;
-            size_t nr_item;
-        } list;
-
-        /*
-         * loop            var NULL, head NULL
-         * loop cond       var NULL, head set
-         * loop i := range var set,  head set
-         */
-        struct {
-            struct token *var;
-            struct parser_ast_node *head;
-            struct parser_ast_node *body;
-        } loop;
 
         struct {
             struct parser_ast_node *cond;
@@ -158,27 +96,12 @@ struct parser_ast_node {
             struct parser_ast_node *else_body;
         } if_stmt;
 
-        /* NODE_CAST_OR_CALL until the semantic pass collapses it */
-        struct {
-            struct parser_ast_node *expr;
-            struct parser_ast_node *target_type;
-        } cast;
-
         struct {
             struct parser_ast_node *expr;
         } return_stmt;
         struct {
             struct parser_ast_node *expr;
         } expr_stmt;
-        struct {
-            struct parser_ast_node *val;
-        } variant;
-        struct {
-            struct parser_ast_node *left;
-        } member;
-        struct {
-            struct parser_ast_node *arg;
-        } named_arg;
 
         struct {
             enum op_type type;
@@ -192,37 +115,19 @@ struct parser_ast_node {
         } binary;
 
         struct {
-            enum op_type type;
-            struct parser_ast_node *target;
-            struct parser_ast_node *val;
-        } assign;
-
-        struct {
             struct parser_ast_node *callee;
             struct parser_ast_node **args;
             size_t nr_arg;
         } call;
 
-        /* end is NULL for plain index */
-        struct {
-            struct parser_ast_node *obj;
-            struct parser_ast_node *idx;
-            struct parser_ast_node *end;
-        } index;
-
+        /*
+         * NEEDSWORK: range bounds need more than 64 bits once arithmetic
+         * is propagated (0..2^63 * 0..2^63). Keep the literal as written
+         * here and let the range pass convert it to its big integer type.
+         */
         struct {
             long long val;
         } lit_int;
-
-        struct {
-            double val;
-        } lit_floating;
-
-        /* NODE_STRING, NODE_CHAR */
-        struct {
-            const char *val;
-            size_t len;
-        } lit_str;
 
         struct {
             unsigned val : 1;
@@ -231,14 +136,7 @@ struct parser_ast_node {
         /* NODE_PARAM */
         struct {
             struct parser_ast_node *ann;
-            unsigned is_spread : 1;
         } param;
-
-        /* [size]elem_type, size is an expression */
-        struct {
-            struct parser_ast_node *elem_type;
-            struct parser_ast_node *size;
-        } type_array;
     };
 };
 

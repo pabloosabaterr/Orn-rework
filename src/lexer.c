@@ -12,16 +12,13 @@ static const char *token_type_names[] = {
     [TK_AMP] = "AMP",
     [TK_AND] = "AND",
     [TK_BINARY] = "BINARY",
-    [TK_BL] = "bl",
     [TK_BREAK] = "break",
     [TK_CARET] = "CARET",
-    [TK_CH] = "ch",
     [TK_CHARLIT] = "CHAR",
     [TK_CMP] = "CMP",
     [TK_COLON] = "COLON",
     [TK_COMMA] = "COMMA",
     [TK_CONTINUE] = "continue",
-    [TK_DB] = "db",
     [TK_DECL] = "DECL",
     [TK_DOT] = "DOT",
     [TK_ELSE] = "else",
@@ -30,12 +27,9 @@ static const char *token_type_names[] = {
     [TK_EQUAL] = "EQUAL",
     [TK_ERROR] = "ERROR",
     [TK_FALSE] = "false",
-    [TK_FL] = "fl",
     [TK_FLOATING] = "FLOATING",
     [TK_GE] = "GE",
-    [TK_GOTO] = "goto",
     [TK_GT] = "GT",
-    [TK_HASH] = "HASH",
     [TK_HEX] = "HEX",
     [TK_ID] = "ID",
     [TK_IF] = "if",
@@ -53,7 +47,6 @@ static const char *token_type_names[] = {
     [TK_MODEQ] = "MODEQ",
     [TK_NEQ] = "NEQ",
     [TK_NOT] = "NOT",
-    [TK_NULL] = "null",
     [TK_NUMBER] = "NUMBER",
     [TK_OBJ] = "obj",
     [TK_OCTAL] = "OCTAL",
@@ -71,16 +64,12 @@ static const char *token_type_names[] = {
     [TK_SLASH] = "SLASH",
     [TK_SLASHEQ] = "SLASHEQ",
     [TK_SPREAD] = "SPREAD",
-    [TK_ST] = "st",
     [TK_STAR] = "STAR",
     [TK_STAREQ] = "STAREQ",
     [TK_STRINGLIT] = "STRING",
     [TK_TILDE] = "TILDE",
-    [TK_TP] = "tp",
     [TK_TRUE] = "true",
-    [TK_UN] = "un",
     [TK_UNDERSCORE] = "UNDERSCORE",
-    [TK_VD] = "vd",
     [TK_WALRUS] = "WALRUS",
 };
 
@@ -122,8 +111,6 @@ const char *lexer_get_token_pretty(enum token_type type)
         return "::";
     case TK_WALRUS:
         return ":=";
-    case TK_HASH:
-        return "#";
     case TK_SPREAD:
         return "...";
     default:
@@ -137,7 +124,7 @@ static inline int is_next(struct lexer_context *lexer, char c)
 }
 
 #define is_end(lexer) (is_next(lexer, '\0'))
-#define create_token(type, start, len)                                                             \
+#define create_token(type, start, len) \
     ((struct token){ type, start, len, lexer->line, lexer->col - (int)(len) })
 
 static char advance(struct lexer_context *lexer)
@@ -241,46 +228,10 @@ static struct token token_id(struct lexer_context *lexer, const char *start)
      * have anothere switch dispatching on len.
      */
     if (len == 2) {
-        switch (start[0]) {
-        case 'b':
-            if (start[1] == 'l')
-                return create_token(TK_BL, start, len);
-            break;
-        case 'c':
-            if (start[1] == 'h')
-                return create_token(TK_CH, start, len);
-            break;
-        case 'd':
-            if (start[1] == 'b')
-                return create_token(TK_DB, start, len);
-            break;
-        case 'f':
-            if (start[1] == 'l')
-                return create_token(TK_FL, start, len);
-            break;
-        case 'i':
-            if (start[1] == 'n')
-                return create_token(TK_IN, start, len);
-            if (start[1] == 'f')
-                return create_token(TK_IF, start, len);
-            break;
-        case 's':
-            if (start[1] == 't')
-                return create_token(TK_ST, start, len);
-            break;
-        case 't':
-            if (start[1] == 'p')
-                return create_token(TK_TP, start, len);
-            break;
-        case 'u':
-            if (start[1] == 'n')
-                return create_token(TK_UN, start, len);
-            break;
-        case 'v':
-            if (start[1] == 'd')
-                return create_token(TK_VD, start, len);
-            break;
-        }
+        if (start[0] == 'i' && start[1] == 'f')
+            return create_token(TK_IF, start, len);
+        if (start[0] == 'i' && start[1] == 'n')
+            return create_token(TK_IN, start, len);
         return create_token(TK_ID, start, len);
     }
 
@@ -303,17 +254,9 @@ static struct token token_id(struct lexer_context *lexer, const char *start)
         if (len == 5 && !memcmp(start, "false", 5))
             return create_token(TK_FALSE, start, len);
         break;
-    case 'g':
-        if (len == 4 && !memcmp(start, "goto", 4))
-            return create_token(TK_GOTO, start, len);
-        break;
     case 'l':
         if (len == 4 && !memcmp(start, "loop", 4))
             return create_token(TK_LOOP, start, len);
-        break;
-    case 'n':
-        if (len == 4 && !memcmp(start, "null", 4))
-            return create_token(TK_NULL, start, len);
         break;
     case 'o':
         if (len == 3 && !memcmp(start, "obj", 3))
@@ -506,8 +449,6 @@ struct token lexer_get_next_token(struct lexer_context *lexer)
         return create_token(TK_SEMICOLON, start, 1);
     case ',':
         return create_token(TK_COMMA, start, 1);
-    case '#':
-        return create_token(TK_HASH, start, 1);
     case '_':
         if (isalnum(*lexer->current) || *lexer->current == '_')
             return token_id(lexer, start);
