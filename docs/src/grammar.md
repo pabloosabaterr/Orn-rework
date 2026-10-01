@@ -1,20 +1,21 @@
 # Grammar
 
-This is the grammar of the Orn. Everything in Orn is a range: there are no
+This is the grammar of the Orn MVP. Everything in Orn is a range: there are no
 built-in types, only sets of integer values written as `lo..hi` (both ends
-inclusive). Names like `u8` or `bool` are ordinary constant bindings provided by
-the standard library.
+inclusive). Names like `u8` or `bool` are ordinary constant bindings.
 
 ```ebnf
 program        = { stmt } ;
 
-stmt           = binding ";"
-               | "ret" [ expr ] ";"
-               | expr ";"
-               | block ;
+(* Every statement ends in ";", including if and blocks. *)
+stmt           = ( binding
+                 | "ret" [ expr ]
+                 | if_stmt
+                 | block
+                 | expr ) ";" ;
 
-(* The last expression of a block, without ";", is the block's value. *)
-block          = "{" { stmt } [ expr ] "}" ;
+(* Blocks have no value: values leave a function through ret. *)
+block          = "{" { stmt } "}" ;
 
 (*
  *   x :: expr          compile-time constant (aliases, functions)
@@ -30,19 +31,17 @@ binding        = ID "::" expr
                | ID ":=" expr
                | ID ":" expr ( "=" | ":" ) expr ;
 
-(* A function is an expression; its name comes from the binding. *)
+(*
+ * A function is an expression; its name comes from the binding.
+ * If it declares a return range, every path must end in ret.
+ *)
 fn_expr        = "(" [ param { "," param } [ "," ] ] ")" [ expr ] block ;
 param          = ID ":" expr ;
 
-if_expr        = "if" expr block [ "else" ( if_expr | block ) ] ;
+(* Comparisons in the condition narrow ranges inside each branch. *)
+if_stmt        = "if" expr block [ "else" ( if_stmt | block ) ] ;
 
-expr           = bound ;
-
-(*
- * Runtime bound: checks the value and narrows it.
- * The else block must leave (ret) or yield a value inside the range.
- *)
-bound          = range [ "in" range "else" block ] ;
+expr           = range ;
 
 range          = logic_or [ ".." logic_or ] ;
 logic_or       = logic_and { "||" logic_and } ;
@@ -64,10 +63,25 @@ arg_list       = expr { "," expr } [ "," ] ;
 primary        = literal
                | ID
                | "(" expr ")"
-               | fn_expr
-               | if_expr ;
+               | fn_expr ;
 
 literal        = NUMBER | HEX | OCTAL | BINARY | "true" | "false" ;
+```
+
+Example:
+
+```
+u8 :: 0..255;
+
+classify :: (i: 0..1000) 0..2 {
+    if i < 10 {
+        ret 0;      // i : 0..9
+    } else if i < 100 {
+        ret 1;      // i : 10..99
+    } else {
+        ret 2;      // i : 100..1000
+    };
+};
 ```
 
 ## Tokens
@@ -84,6 +98,7 @@ Reserved for later: `loop`, `break`, `continue`, `obj`, `enum`, `import`.
 
 ## Not in the MVP
 
-Division and modulo (they need the divisor to exclude 0), loops, reassignment,
+Block values and `if` as an expression, runtime bounds (`x in 0..9 else { … }`),
+division and modulo (they need the divisor to exclude 0), loops, reassignment,
 arrays, open ranges (`..9`), unions of ranges (`0..3 | 10..12`), `distinct`,
 floats, strings and pointers.
