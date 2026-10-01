@@ -152,8 +152,6 @@ struct parser_context {
 
     struct token token_queue[4];
     size_t token_queue_nr;
-
-    unsigned in_panic : 1;
 };
 
 #define PARSER_CONTEXT_INIT { 0 }

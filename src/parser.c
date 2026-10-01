@@ -75,11 +75,9 @@ static struct source_location loc_from_token(struct parser_context *p)
 
 static void expect_token(struct parser_context *p, enum token_type type)
 {
-    if (!check_type_and_advance(p, type) && !p->in_panic) {
+    if (!check_type_and_advance(p, type))
         diag_emit(p->diag, ERROR, loc_from_token(p), "expected '%s' after '%.*s'",
                   lexer_get_token_pretty(type), (int)p->prev.len, p->prev.lex);
-        p->in_panic = 1;
-    }
 }
 
 static struct parser_ast_node *create_node(struct parser_context *p, enum node_type type,
