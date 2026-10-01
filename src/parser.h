@@ -48,6 +48,12 @@ enum op_type {
     OP_NOT,
 };
 
+struct node_list {
+    struct parser_ast_node **items;
+    size_t nr;
+    size_t alloc;
+};
+
 /*
  * It is preferred to be redundant at the union so later on the next stages,
  * the code is readable and there is no need for node_type dispatchers.
@@ -58,9 +64,7 @@ struct parser_ast_node {
     union {
         /* NODE_PROGRAM, NODE_BLOCK */
         struct {
-            struct parser_ast_node **childs;
-            size_t nr;
-            size_t alloc;
+            struct node_list stmts;
         } block;
 
         /*
@@ -69,7 +73,6 @@ struct parser_ast_node {
          *   ann  init  is_const
          *   NULL  set     1      X :: expr
          *   NULL  set     0      X := expr
-         *   set  NULL     -      X : T
          *   set   set     1      X : T : expr
          *   set   set     0      X : T = expr
          *
@@ -84,8 +87,7 @@ struct parser_ast_node {
 
         /* NODE_FN. The name, if any, belongs to the binding above. */
         struct {
-            struct parser_ast_node **params;
-            size_t nr_param;
+            struct node_list params;
             struct parser_ast_node *ret_type;
             struct parser_ast_node *body;
         } fn;
@@ -116,7 +118,7 @@ struct parser_ast_node {
 
         struct {
             struct parser_ast_node *callee;
-            struct parser_ast_node **args;
+            struct node_list args;
             size_t nr_arg;
         } call;
 
@@ -162,7 +164,6 @@ struct parser_context {
 void parser_init(struct parser_context *ctx, struct lexer_context *lexer, struct arena *arena,
                  struct diag_context *diag);
 struct parser_ast_node *parser_parse(struct parser_context *parser);
-void parser_free(struct parser_context *parser);
 
 /*
  * Print to stdout the Abtract Syntax Tree
