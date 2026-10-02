@@ -32,6 +32,10 @@ static struct token pop_token(struct parser_context *p)
     return poped;
 }
 
+/*
+ * Advances the current token with the next one.
+ * Returns the previous "current" token.
+ */
 static struct token advance_token(struct parser_context *p)
 {
     p->prev = p->current;
@@ -75,8 +79,7 @@ static void expect_token(struct parser_context *p, enum token_type type)
                   lexer_get_token_pretty(type), (int)p->prev.len, p->prev.lex);
 }
 
-static struct node *create_node(struct parser_context *p, enum node_type type,
-                                           struct token token)
+static struct node *create_node(struct parser_context *p, enum node_type type, struct token token)
 {
     struct node *node = arena_alloc(p->arena, sizeof(struct node));
     memset(node, 0, sizeof(struct node));
@@ -86,9 +89,7 @@ static struct node *create_node(struct parser_context *p, enum node_type type,
     return node;
 }
 
-static void append_node(struct parser_context *p,
-                       struct node_list *list,
-                       struct node *to_append)
+static void append_node(struct parser_context *p, struct node_list *list, struct node *to_append)
 {
     if (list->nr >= list->alloc)
         ARENA_ALLOC_GROW(p->arena, list->items, list->nr + 1, list->alloc);
@@ -120,18 +121,45 @@ static struct node *parse_return(struct parser_context *p)
 {
     struct node *ret_node = create_node(p, NODE_RETURN, p->current);
     expect_token(p, TK_RETURN);
-    
+
     if (!check_token_type(p, TK_SEMICOLON))
         ret_node->return_stmt.expr = parse_expr(p);
 
     return ret_node;
 }
 
+/*
+ * x :: expr          compile-time constant (aliases, functions)
+ * x := expr          runtime binding, range inferred
+ * x : T = expr       runtime binding, range declared
+ * x : T : expr       compile-time constant, range declared
+ */
 static struct node *parse_binding(struct parser_context *p)
 {
-    struct node *node = create_node(p, NODE_ERROR, p->current);
+    struct node *binding = create_node(p, NODE_BINDING, p->current);
+
+    /* Whether it is ::, := or : is already checked at parse_stmt() */
     advance_token(p);
-    return node;
+
+    switch (advance_token(p).type) {
+    case TK_WALRUS: /* x :: e */
+        break;
+    case TK_COLON: /* x := e */
+        binding->binding.ann = parse_expr(p);
+        if (check_type_and_advance(p, TK_COLON))
+            binding->binding.is_const = true;
+        else
+            expect_token(p, TK_EQUAL);
+        break;
+    case TK_DECL: /* x : T = e || x : T : e */
+        binding->binding.is_const = true;
+        break;
+    default:
+        BUG("parse_binding: unexpected '%s'", lexer_get_token_pretty(p->current.type));
+    }
+
+    binding->binding.init = parse_expr(p);
+    return binding;
 }
 
 static struct node *parse_expr_stmt(struct parser_context *p)
@@ -228,8 +256,7 @@ static void print_node(struct node *n, size_t depth)
     case NODE_PROGRAM:
     case NODE_BLOCK:
         printf("%s\n", n->type == NODE_PROGRAM ? "[PROGRAM]" : "[BLOCK]");
-        foreach_node(node, n->block.stmts)
-            print_node(node, depth + 1);
+        foreach_node(node, n->block.stmts) print_node(node, depth + 1);
         break;
     case NODE_RETURN:
         printf("[RETURN]\n");

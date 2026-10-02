@@ -1,6 +1,9 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #include "diagnostic.h"
 #include "lexer.h"
 
@@ -82,7 +85,7 @@ struct node {
         struct {
             struct node *ann;
             struct node *init;
-            unsigned is_const : 1;
+            bool is_const;
         } binding;
 
         /* NODE_FN. The name, if any, belongs to the binding above. */
@@ -128,11 +131,11 @@ struct node {
          * here and let the range pass convert it to its big integer type.
          */
         struct {
-            long long val;
+            uint64_t val;
         } lit_int;
 
         struct {
-            unsigned val : 1;
+            bool val;
         } lit_bool;
 
         /* NODE_PARAM */
@@ -142,10 +145,9 @@ struct node {
     };
 };
 
-#define foreach_node(node, list) \
-    for (struct node **_p = (list).items, *node; \
-         _p < (list).items + (list).nr && ((node) = *_p, 1); \
-         _p++)
+#define foreach_node(node, list)                                                                   \
+    for (struct node **_p = (list).items, *node;                                                   \
+         _p < (list).items + (list).nr && ((node) = *_p, 1); _p++)
 
 #define PARSER_AST_NODE_INIT { .type = NODE_ERROR }
 
