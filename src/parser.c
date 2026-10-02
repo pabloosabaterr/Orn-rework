@@ -102,6 +102,7 @@ static void append_node(struct parser_context *p,
 }
 
 static struct parser_ast_node *parse_stmt(struct parser_context *p);
+static struct parser_ast_node *parse_expr(struct parser_context *p);
 
 /*
  * block = LBRACE stmt* RBRACE
@@ -117,18 +118,27 @@ static struct parser_ast_node *parse_block(struct parser_context *p)
     return block;
 }
 
+/*
+ * "ret" [ expr ]
+ */
 static struct parser_ast_node *parse_return(struct parser_context *p)
 {
-    struct parser_ast_node *node = create_node(p, NODE_ERROR, p->current);
-    advance_token(p);
-    return node;
+    struct parser_ast_node *ret_node = create_node(p, NODE_RETURN, p->current);
+    expect_token(p, TK_RETURN);
+    
+    if (!check_token_type(p, TK_SEMICOLON))
+        ret_node->return_stmt.expr = parse_expr(p);
+
+    return ret_node;
 }
+
 static struct parser_ast_node *parse_binding(struct parser_context *p)
 {
     struct parser_ast_node *node = create_node(p, NODE_ERROR, p->current);
     advance_token(p);
     return node;
 }
+
 static struct parser_ast_node *parse_expr_stmt(struct parser_context *p)
 {
     struct parser_ast_node *node = create_node(p, NODE_ERROR, p->current);
@@ -136,32 +146,48 @@ static struct parser_ast_node *parse_expr_stmt(struct parser_context *p)
     return node;
 }
 
+static struct parser_ast_node *parse_expr(struct parser_context *p)
+{
+    struct parser_ast_node *node = create_node(p, NODE_ERROR, p->current);
+    advance_token(p);
+    return node;
+}
+
+static int is_binding_op(enum token_type type)
+{
+    return type == TK_DECL || type == TK_WALRUS || type == TK_COLON;
+}
+
 /*
- * stmt = binding SEMI
- *      | RET expr? SEMI
- *      | expr SEMI
+ * All stmts ends in ";", NEEDSWORK: some exceptions can obviously be done such as excluding
+ * blocks.
+ *
+ * stmt = ( binding
+ *      | "ret" [ expr ]
+ *      | if_stmt
  *      | block
+ *      | expr ) ";" ;
  */
 static struct parser_ast_node *parse_stmt(struct parser_context *p)
 {
+    struct parser_ast_node *stmt;
+
     switch (p->current.type) {
     case TK_RETURN:
-        return parse_return(p);
+        stmt = parse_return(p);
+        break;
     case TK_LBRACE:
-        return parse_block(p);
+        stmt = parse_block(p);
+        break;
     default:
-        if (p->current.type == TK_ID) {
-            switch (peek_at(p, 0).type) {
-            case TK_DECL:
-            case TK_WALRUS:
-            case TK_COLON:
-                return parse_binding(p);
-            default:
-                break;
-            }
-        }
-        return parse_expr_stmt(p);
+        if (p->current.type == TK_ID && is_binding_op(peek_at(p, 0).type))
+            stmt = parse_binding(p);
+        else
+            stmt = parse_expr_stmt(p);
     }
+
+    expect_token(p, TK_SEMICOLON);
+    return stmt;
 }
 
 /*
@@ -210,11 +236,13 @@ static void print_node(struct parser_ast_node *n, size_t depth)
         foreach_node(node, n->block.stmts)
             print_node(node, depth + 1);
         break;
-
+    case NODE_RETURN:
+        printf("[RETURN]\n");
+        print_node(n->return_stmt.expr, depth + 1);
+        break;
     case NODE_ERROR:
         printf("[ERROR]  lexeme='%.*s'\n", (int)n->tok.len, n->tok.lex);
         break;
-
     default:
         printf("[?? type=%d]\n", (int)n->type);
     }
