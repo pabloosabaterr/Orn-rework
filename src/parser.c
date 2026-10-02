@@ -32,15 +32,10 @@ static struct token pop_token(struct parser_context *p)
     return poped;
 }
 
-static struct token next_token(struct parser_context *p)
-{
-    return p->token_queue_nr ? pop_token(p) : lexer_get_next_token(p->lexer);
-}
-
 static struct token advance_token(struct parser_context *p)
 {
     p->prev = p->current;
-    p->current = next_token(p);
+    p->current = p->token_queue_nr ? pop_token(p) : lexer_get_next_token(p->lexer);
 
     if (p->prev.type == TK_UNINIT)
         p->prev = p->current;
