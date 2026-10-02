@@ -91,22 +91,14 @@ static struct parser_ast_node *create_node(struct parser_context *p, enum node_t
     return node;
 }
 
-/*
- * Returns 1 on failing to append.
- * Realloc's if the block list is full.
- */
-static int append_node_to_block(struct parser_context *p, struct parser_ast_node *block,
-                                struct parser_ast_node *to_append)
+static void append_node(struct parser_context *p,
+                       struct node_list *list,
+                       struct parser_ast_node *to_append)
 {
-    if (block->type != NODE_PROGRAM && block->type != NODE_BLOCK)
-        return 1;
+    if (list->nr >= list->alloc)
+        ARENA_ALLOC_GROW(p->arena, list->items, list->nr + 1, list->alloc);
 
-    if (block->block.nr >= block->block.alloc)
-        ARENA_ALLOC_GROW(p->arena, block->block.childs, block->block.nr + 1, block->block.alloc);
-
-    block->block.childs[block->block.nr++] = to_append;
-
-    return 0;
+    list->items[list->nr++] = to_append;
 }
 
 static struct parser_ast_node *parse_stmt(struct parser_context *p);
@@ -120,9 +112,7 @@ static struct parser_ast_node *parse_block(struct parser_context *p)
     expect_token(p, TK_LBRACE);
 
     while (p->current.type != TK_RBRACE)
-        if (append_node_to_block(p, block, parse_stmt(p)))
-            die("parse_block: failed appending");
-
+        append_node(p, &block->block.stmts, parse_stmt(p));
     expect_token(p, TK_RBRACE);
     return block;
 }
@@ -189,7 +179,7 @@ static struct parser_ast_node *parse_program(struct parser_context *p)
         struct parser_ast_node *stmt = parse_stmt(p);
 
         if (stmt)
-            append_node_to_block(p, program, stmt);
+            append_node(p, &program->block.stmts, stmt);
     }
 
     return program;
@@ -217,8 +207,8 @@ static void print_node(struct parser_ast_node *n, size_t depth)
     case NODE_PROGRAM:
     case NODE_BLOCK:
         printf("%s\n", n->type == NODE_PROGRAM ? "[PROGRAM]" : "[BLOCK]");
-        for (size_t i = 0; i < n->block.nr; i++)
-            print_node(n->block.childs[i], depth + 1);
+        foreach_node(node, n->block.stmts)
+            print_node(node, depth + 1);
         break;
 
     case NODE_ERROR:

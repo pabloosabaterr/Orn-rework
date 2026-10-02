@@ -142,6 +142,11 @@ struct parser_ast_node {
     };
 };
 
+#define foreach_node(node, list) \
+    for (struct parser_ast_node **_p = (list).items, *node; \
+         _p < (list).items + (list).nr && ((node) = *_p, 1); \
+         _p++)
+
 #define PARSER_AST_NODE_INIT { .type = NODE_ERROR }
 
 struct parser_context {
