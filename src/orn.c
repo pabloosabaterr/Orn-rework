@@ -8,7 +8,7 @@ static void orn_run_pipeline(struct compiler_context *cc)
 {
     struct parser_context parser = PARSER_CONTEXT_INIT;
     struct lexer_context lexer = LEXER_CONTEXT_INIT;
-    struct parser_ast_node *program = NULL;
+    struct node *program = NULL;
 
     lexer_init(&lexer, &cc->file, &cc->diag);
 

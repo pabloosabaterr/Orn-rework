@@ -49,7 +49,7 @@ enum op_type {
 };
 
 struct node_list {
-    struct parser_ast_node **items;
+    struct node **items;
     size_t nr;
     size_t alloc;
 };
@@ -58,7 +58,7 @@ struct node_list {
  * It is preferred to be redundant at the union so later on the next stages,
  * the code is readable and there is no need for node_type dispatchers.
  */
-struct parser_ast_node {
+struct node {
     enum node_type type;
     struct token tok;
     union {
@@ -80,44 +80,44 @@ struct parser_ast_node {
          * and an alias is just a constant binding: u8 :: 0..255
          */
         struct {
-            struct parser_ast_node *ann;
-            struct parser_ast_node *init;
+            struct node *ann;
+            struct node *init;
             unsigned is_const : 1;
         } binding;
 
         /* NODE_FN. The name, if any, belongs to the binding above. */
         struct {
             struct node_list params;
-            struct parser_ast_node *ret_type;
-            struct parser_ast_node *body;
+            struct node *ret_type;
+            struct node *body;
         } fn;
 
         struct {
-            struct parser_ast_node *cond;
-            struct parser_ast_node *then_body;
-            struct parser_ast_node *else_body;
+            struct node *cond;
+            struct node *then_body;
+            struct node *else_body;
         } if_stmt;
 
         struct {
-            struct parser_ast_node *expr;
+            struct node *expr;
         } return_stmt;
         struct {
-            struct parser_ast_node *expr;
+            struct node *expr;
         } expr_stmt;
 
         struct {
             enum op_type type;
-            struct parser_ast_node *operand;
+            struct node *operand;
         } unary;
 
         struct {
-            struct parser_ast_node *left;
-            struct parser_ast_node *right;
+            struct node *left;
+            struct node *right;
             enum op_type type;
         } binary;
 
         struct {
-            struct parser_ast_node *callee;
+            struct node *callee;
             struct node_list args;
             size_t nr_arg;
         } call;
@@ -137,13 +137,13 @@ struct parser_ast_node {
 
         /* NODE_PARAM */
         struct {
-            struct parser_ast_node *ann;
+            struct node *ann;
         } param;
     };
 };
 
 #define foreach_node(node, list) \
-    for (struct parser_ast_node **_p = (list).items, *node; \
+    for (struct node **_p = (list).items, *node; \
          _p < (list).items + (list).nr && ((node) = *_p, 1); \
          _p++)
 
@@ -168,11 +168,11 @@ struct parser_context {
  */
 void parser_init(struct parser_context *ctx, struct lexer_context *lexer, struct arena *arena,
                  struct diag_context *diag);
-struct parser_ast_node *parser_parse(struct parser_context *parser);
+struct node *parser_parse(struct parser_context *parser);
 
 /*
  * Print to stdout the Abtract Syntax Tree
  */
-void parser_print(struct parser_ast_node *program);
+void parser_print(struct node *program);
 
 #endif

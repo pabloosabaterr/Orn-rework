@@ -80,11 +80,11 @@ static void expect_token(struct parser_context *p, enum token_type type)
                   lexer_get_token_pretty(type), (int)p->prev.len, p->prev.lex);
 }
 
-static struct parser_ast_node *create_node(struct parser_context *p, enum node_type type,
+static struct node *create_node(struct parser_context *p, enum node_type type,
                                            struct token token)
 {
-    struct parser_ast_node *node = arena_alloc(p->arena, sizeof(struct parser_ast_node));
-    memset(node, 0, sizeof(struct parser_ast_node));
+    struct node *node = arena_alloc(p->arena, sizeof(struct node));
+    memset(node, 0, sizeof(struct node));
     node->tok = token;
     node->type = type;
 
@@ -93,7 +93,7 @@ static struct parser_ast_node *create_node(struct parser_context *p, enum node_t
 
 static void append_node(struct parser_context *p,
                        struct node_list *list,
-                       struct parser_ast_node *to_append)
+                       struct node *to_append)
 {
     if (list->nr >= list->alloc)
         ARENA_ALLOC_GROW(p->arena, list->items, list->nr + 1, list->alloc);
@@ -101,15 +101,15 @@ static void append_node(struct parser_context *p,
     list->items[list->nr++] = to_append;
 }
 
-static struct parser_ast_node *parse_stmt(struct parser_context *p);
-static struct parser_ast_node *parse_expr(struct parser_context *p);
+static struct node *parse_stmt(struct parser_context *p);
+static struct node *parse_expr(struct parser_context *p);
 
 /*
  * block = LBRACE stmt* RBRACE
  */
-static struct parser_ast_node *parse_block(struct parser_context *p)
+static struct node *parse_block(struct parser_context *p)
 {
-    struct parser_ast_node *block = create_node(p, NODE_BLOCK, p->current);
+    struct node *block = create_node(p, NODE_BLOCK, p->current);
     expect_token(p, TK_LBRACE);
 
     while (p->current.type != TK_RBRACE)
@@ -121,9 +121,9 @@ static struct parser_ast_node *parse_block(struct parser_context *p)
 /*
  * "ret" [ expr ]
  */
-static struct parser_ast_node *parse_return(struct parser_context *p)
+static struct node *parse_return(struct parser_context *p)
 {
-    struct parser_ast_node *ret_node = create_node(p, NODE_RETURN, p->current);
+    struct node *ret_node = create_node(p, NODE_RETURN, p->current);
     expect_token(p, TK_RETURN);
     
     if (!check_token_type(p, TK_SEMICOLON))
@@ -132,23 +132,23 @@ static struct parser_ast_node *parse_return(struct parser_context *p)
     return ret_node;
 }
 
-static struct parser_ast_node *parse_binding(struct parser_context *p)
+static struct node *parse_binding(struct parser_context *p)
 {
-    struct parser_ast_node *node = create_node(p, NODE_ERROR, p->current);
+    struct node *node = create_node(p, NODE_ERROR, p->current);
     advance_token(p);
     return node;
 }
 
-static struct parser_ast_node *parse_expr_stmt(struct parser_context *p)
+static struct node *parse_expr_stmt(struct parser_context *p)
 {
-    struct parser_ast_node *node = create_node(p, NODE_ERROR, p->current);
+    struct node *node = create_node(p, NODE_ERROR, p->current);
     advance_token(p);
     return node;
 }
 
-static struct parser_ast_node *parse_expr(struct parser_context *p)
+static struct node *parse_expr(struct parser_context *p)
 {
-    struct parser_ast_node *node = create_node(p, NODE_ERROR, p->current);
+    struct node *node = create_node(p, NODE_ERROR, p->current);
     advance_token(p);
     return node;
 }
@@ -168,9 +168,9 @@ static int is_binding_op(enum token_type type)
  *      | block
  *      | expr ) ";" ;
  */
-static struct parser_ast_node *parse_stmt(struct parser_context *p)
+static struct node *parse_stmt(struct parser_context *p)
 {
-    struct parser_ast_node *stmt;
+    struct node *stmt;
 
     switch (p->current.type) {
     case TK_RETURN:
@@ -194,15 +194,15 @@ static struct parser_ast_node *parse_stmt(struct parser_context *p)
  * NODE_PROGRAM is just a cool block
  * program = stmt*
  */
-static struct parser_ast_node *parse_program(struct parser_context *p)
+static struct node *parse_program(struct parser_context *p)
 {
     struct token program_tok = TOKEN_INIT;
-    struct parser_ast_node *program;
+    struct node *program;
     advance_token(p);
 
     program = create_node(p, NODE_PROGRAM, program_tok);
     while (!check_token_type(p, TK_EOF)) {
-        struct parser_ast_node *stmt = parse_stmt(p);
+        struct node *stmt = parse_stmt(p);
 
         if (stmt)
             append_node(p, &program->block.stmts, stmt);
@@ -211,7 +211,7 @@ static struct parser_ast_node *parse_program(struct parser_context *p)
     return program;
 }
 
-struct parser_ast_node *parser_parse(struct parser_context *p)
+struct node *parser_parse(struct parser_context *p)
 {
     return parse_program(p);
 }
@@ -222,7 +222,7 @@ static void print_indent(size_t depth)
         printf("    ");
 }
 
-static void print_node(struct parser_ast_node *n, size_t depth)
+static void print_node(struct node *n, size_t depth)
 {
     if (!n)
         return;
@@ -248,7 +248,7 @@ static void print_node(struct parser_ast_node *n, size_t depth)
     }
 }
 
-void parser_print(struct parser_ast_node *program)
+void parser_print(struct node *program)
 {
     assert(program);
     print_node(program, 0);
