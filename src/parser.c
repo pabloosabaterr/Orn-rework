@@ -164,8 +164,8 @@ static struct node *parse_binding(struct parser_context *p)
 
 static struct node *parse_expr_stmt(struct parser_context *p)
 {
-    struct node *node = create_node(p, NODE_ERROR, p->current);
-    advance_token(p);
+    struct node *node = create_node(p, NODE_EXPR_STMT, p->current);
+    node->expr_stmt.expr = parse_expr(p);
     return node;
 }
 
@@ -261,6 +261,15 @@ static void print_node(struct node *n, size_t depth)
     case NODE_RETURN:
         printf("[RETURN]\n");
         print_node(n->return_stmt.expr, depth + 1);
+        break;
+    case NODE_EXPR_STMT:
+        printf("[EXPR_STMT]\n");
+        print_node(n->expr_stmt.expr, depth + 1);
+        break;
+    case NODE_BINDING:
+        printf("[BINDING]\n");
+        if (n->binding.init)
+            print_node(n->binding.init, depth + 1);
         break;
     case NODE_ERROR:
         printf("[ERROR]  lexeme='%.*s'\n", (int)n->tok.len, n->tok.lex);
