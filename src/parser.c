@@ -176,10 +176,33 @@ static struct node *parse_expr(struct parser_context *p)
     return node;
 }
 
+static struct node *parse_if(struct parser_context *p)
+{
+    struct node *node = create_node(p, NODE_ERROR, p->current);
+    advance_token(p);
+    return node;
+}
+
+static struct node *parse_loop(struct parser_context *p)
+{
+    struct node *node = create_node(p, NODE_ERROR, p->current);
+    advance_token(p);
+    return node;
+}
+
 static int is_binding_op(enum token_type type)
 {
     return type == TK_DECL || type == TK_WALRUS || type == TK_COLON;
 }
+
+typedef struct node *parsing_fn(struct parser_context *);
+
+static parsing_fn *const stmt_vtable[] = {
+    [TK_RETURN] = parse_return,
+    [TK_LBRACE] = parse_block,
+    [TK_IF] = parse_if,
+    [TK_LOOP] = parse_loop,
+};
 
 /*
  * All stmts ends in ";", NEEDSWORK: some exceptions can obviously be done such as excluding
@@ -193,21 +216,18 @@ static int is_binding_op(enum token_type type)
  */
 static struct node *parse_stmt(struct parser_context *p)
 {
+    enum token_type type = p->current.type;
     struct node *stmt;
+    parsing_fn *fn;
 
-    switch (p->current.type) {
-    case TK_RETURN:
-        stmt = parse_return(p);
-        break;
-    case TK_LBRACE:
-        stmt = parse_block(p);
-        break;
-    default:
-        if (p->current.type == TK_ID && is_binding_op(peek_at(p, 0).type))
+    fn = type < ARRAY_SIZE(stmt_vtable) ?  stmt_vtable[type] : NULL;
+
+    if (fn)
+        stmt = fn(p);
+    else if (p->current.type == TK_ID && is_binding_op(peek_at(p, 0).type))
             stmt = parse_binding(p);
-        else
+    else
             stmt = parse_expr_stmt(p);
-    }
 
     expect_token(p, TK_SEMICOLON);
     return stmt;
