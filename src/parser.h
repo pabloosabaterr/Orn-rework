@@ -29,7 +29,7 @@ enum node_type {
     NODE_FN,
     NODE_PARAM,
 
-    NODE_INT,
+    NODE_NUMBER,
     NODE_BOOL,
     NODE_ID,
 };
@@ -49,6 +49,13 @@ enum op_type {
     OP_RANGE,
     OP_NEG,
     OP_NOT,
+    OP_DIV,
+    OP_MOD,
+};
+
+struct binding_powers {
+    int left;
+    int right;
 };
 
 struct node_list {
@@ -145,9 +152,9 @@ struct node {
     };
 };
 
-#define foreach_node(node, list)                                                                   \
-    for (struct node **_p = (list).items, *node;                                                   \
-         _p < (list).items + (list).nr && ((node) = *_p, 1); _p++)
+#define foreach_node(var, list) \
+    for (struct node **_p = (list).items, *var; \
+         _p < (list).items + (list).nr && ((var) = *_p, 1); _p++)
 
 #define PARSER_AST_NODE_INIT { .type = NODE_ERROR }
 

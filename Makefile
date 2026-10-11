@@ -11,6 +11,7 @@ WARN += -Wpointer-arith
 WARN += -Wcast-align
 WARN += -Wvla
 WARN += -Wsign-compare
+WARN += -Wimplicit-fallthrough
 
 CFLAGS = -std=c11 $(WARN) -MMD -MP -I src
 LDFLAGS =

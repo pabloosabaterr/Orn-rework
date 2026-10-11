@@ -2,6 +2,7 @@ build/
 *.o
 *.d
 compile_commands.json
+.cache/
 
 # Book build
 docs/book/
