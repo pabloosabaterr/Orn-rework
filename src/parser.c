@@ -47,17 +47,19 @@ static struct token advance_token(struct parser_context *p)
     return p->prev;
 }
 
-static int check_token_type(struct parser_context *p, enum token_type type)
+/* Is the current token of this type? */
+static bool check(struct parser_context *p, enum token_type type)
 {
     return p->current.type == type;
 }
 
-static int check_type_and_advance(struct parser_context *p, enum token_type type)
+/* Like check(), but also consumes the token when it matches. */
+static bool match(struct parser_context *p, enum token_type type)
 {
-    if (!check_token_type(p, type))
-        return 0;
+    if (!check(p, type))
+        return false;
     advance_token(p);
-    return 1;
+    return true;
 }
 
 static struct source_location loc_of(struct parser_context *p, struct token tok)
@@ -78,7 +80,7 @@ static struct source_location loc_from_token(struct parser_context *p)
 
 static void expect_token(struct parser_context *p, enum token_type type)
 {
-    if (!check_type_and_advance(p, type))
+    if (!match(p, type))
         diag_emit(p->diag, ERROR, loc_from_token(p), "expected '%s' after '%.*s'",
                   lexer_get_token_pretty(type), (int)p->prev.len, p->prev.lex);
 }
@@ -112,7 +114,7 @@ static struct node *parse_block(struct parser_context *p)
     struct node *block = create_node(p, NODE_BLOCK, p->current);
     expect_token(p, TK_LBRACE);
 
-    while (!check_token_type(p, TK_RBRACE) && !check_token_type(p, TK_EOF))
+    while (!check(p, TK_RBRACE) && !check(p, TK_EOF))
         append_node(p, &block->block.stmts, parse_stmt(p));
     expect_token(p, TK_RBRACE);
     return block;
@@ -126,7 +128,7 @@ static struct node *parse_return(struct parser_context *p)
     struct node *ret_node = create_node(p, NODE_RETURN, p->current);
     expect_token(p, TK_RETURN);
 
-    if (!check_token_type(p, TK_SEMICOLON))
+    if (!check(p, TK_SEMICOLON))
         ret_node->return_stmt.expr = parse_expr(p);
 
     return ret_node;
@@ -155,7 +157,7 @@ static struct node *parse_binding(struct parser_context *p)
         break;
     case TK_COLON: /* x : T = e  or  x : T : e */
         binding->binding.ann = parse_expr(p);
-        if (check_type_and_advance(p, TK_COLON))
+        if (match(p, TK_COLON))
             binding->binding.is_const = true;
         else
             expect_token(p, TK_EQUAL);
@@ -217,6 +219,32 @@ static bool is_non_assoc(enum op_type op)
     }
 }
 
+static  struct node *parse_param(struct parser_context *p)
+{
+    struct node *node = create_node(p, NODE_PARAM, p->current);
+    advance_token(p);
+    expect_token(p, TK_COLON);
+    node->param.ann = parse_expr(p); 
+
+    return node;
+}
+
+static struct node *parse_fn(struct parser_context *p)
+{
+    struct node *node = create_node(p, NODE_FN, p->prev);
+    if (!check(p, TK_RPAREN)) {
+        do
+            append_node(p, &node->fn.params, parse_param(p));
+        while (match(p, TK_COMMA));
+    }
+    expect_token(p, TK_RPAREN);
+
+    node->fn.ret_type = parse_expr(p);
+    node->fn.body = parse_block(p);
+
+    return node;
+}
+
 static struct node *parse_prefix(struct parser_context *p)
 {
     struct node *node = NULL;
@@ -236,25 +264,30 @@ static struct node *parse_prefix(struct parser_context *p)
     case TK_TRUE:
     case TK_FALSE:
         node = create_node(p, NODE_BOOL, p->current);
-        node->lit_bool.val = p->current.type == TK_TRUE;
+        node->lit_bool.val = check(p, TK_TRUE);
         advance_token(p);
         break;
     case TK_LPAREN:
         advance_token(p);
-        node = parse_expr(p);
-        expect_token(p, TK_RPAREN);
+        if (check(p, TK_RPAREN) ||
+            (check(p, TK_ID) && peek_at(p, 0).type == TK_COLON)) {
+            node = parse_fn(p);
+        } else {
+            node = parse_expr(p);
+            expect_token(p, TK_RPAREN);
+        }
         break;
     case TK_MINUS:
     case TK_NOT:
         node = create_node(p, NODE_UNARY, p->current);
-        node->unary.type = p->current.type == TK_MINUS ? OP_NEG : OP_NOT;
+        node->unary.type = check(p, TK_MINUS) ? OP_NEG : OP_NOT;
         advance_token(p);
         node->unary.operand = parse_expr_internal(p, prefix_table[node->unary.type]);
         break;
     default:
         node = create_node(p, NODE_ERROR, p->current);
         diag_emit(p->diag, ERROR, loc_of(p, p->current), "Unrecognized expr prefix");
-        if (p->current.type != TK_SEMICOLON && p->current.type != TK_EOF)
+        if (!check(p, TK_SEMICOLON) && !check(p, TK_EOF))
             advance_token(p);
         break;
     }
@@ -305,10 +338,10 @@ static struct node *parse_call(struct parser_context *p, struct node *callee)
     call->call.callee = callee;
     expect_token(p, TK_LPAREN);
 
-    if (!check_token_type(p, TK_RPAREN)) {
+    if (!check(p, TK_RPAREN)) {
         do
             append_node(p, &call->call.args, parse_expr(p));
-        while (check_type_and_advance(p, TK_COMMA));
+        while (match(p, TK_COMMA));
     }
     expect_token(p, TK_RPAREN);
 
@@ -325,7 +358,7 @@ static struct node *parse_expr_internal(struct parser_context *p, int min_bindin
         struct token op_tok = p->current;
         enum op_type op, next;
 
-        if (check_token_type(p, TK_LPAREN)) {
+        if (check(p, TK_LPAREN)) {
             if (CALL_BINDING < min_binding)
                 break;
             lhs = parse_call(p, lhs);
@@ -410,7 +443,7 @@ static struct node *parse_stmt(struct parser_context *p)
 
     if (fn)
         stmt = fn(p);
-    else if (p->current.type == TK_ID && is_binding_op(peek_at(p, 0).type))
+    else if (check(p, TK_ID) && is_binding_op(peek_at(p, 0).type))
             stmt = parse_binding(p);
     else
             stmt = parse_expr_stmt(p);
@@ -430,7 +463,7 @@ static struct node *parse_program(struct parser_context *p)
     advance_token(p);
 
     program = create_node(p, NODE_PROGRAM, program_tok);
-    while (!check_token_type(p, TK_EOF)) {
+    while (!check(p, TK_EOF)) {
         struct node *stmt = parse_stmt(p);
 
         if (stmt)
@@ -463,6 +496,20 @@ static void print_node(struct node *n, size_t depth)
     case NODE_BLOCK:
         printf("%s\n", n->type == NODE_PROGRAM ? "[PROGRAM]" : "[BLOCK]");
         foreach_node(node, n->block.stmts) print_node(node, depth + 1);
+        break;
+    case NODE_FN:
+        printf("[FN]\n");
+        foreach_node(node, n->fn.params) print_node(node, depth + 1);
+        if (n->fn.ret_type) {
+            print_indent(depth + 1);
+            printf("[RET]\n");
+            print_node(n->fn.ret_type, depth + 2);
+        }
+        print_node(n->fn.body, depth + 1);
+        break;
+    case NODE_PARAM:
+        printf("[PARAM] '%.*s'\n", (int)n->tok.len, n->tok.lex);
+        print_node(n->param.ann, depth + 1);
         break;
     case NODE_RETURN:
         printf("[RETURN]\n");
