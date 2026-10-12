@@ -78,8 +78,13 @@ static struct source_location loc_from_token(struct parser_context *p)
 static void expect_token(struct parser_context *p, enum token_type type)
 {
     if (!match(p, type))
-        diag_emit(p->diag, ERROR, loc_from_token(p), "expected '%s' after '%.*s'",
-                  token_pretty(type), (int)p->prev.len, p->prev.lex);
+        diag_emit(p->diag,
+                  ERROR,
+                  loc_from_token(p),
+                  "expected '%s' after '%.*s'",
+                  token_pretty(type),
+                  (int)p->prev.len,
+                  p->prev.lex);
 }
 
 static struct node *create_node(struct parser_context *p, enum node_type type, struct token token)
@@ -104,7 +109,7 @@ static struct node *parse_stmt(struct parser_context *p);
 static struct node *parse_expr(struct parser_context *p);
 
 /*
- * block = LBRACE stmt* RBRACE
+ * block = "{" { stmt } "}" ;
  */
 static struct node *parse_block(struct parser_context *p)
 {
@@ -118,7 +123,7 @@ static struct node *parse_block(struct parser_context *p)
 }
 
 /*
- * "ret" [ expr ]
+ * return = "ret" [ expr ] ;
  */
 static struct node *parse_return(struct parser_context *p)
 {
@@ -132,6 +137,10 @@ static struct node *parse_return(struct parser_context *p)
 }
 
 /*
+ * binding = ID "::" expr
+ *         | ID ":=" expr
+ *         | ID ":" expr ( "=" | ":" ) expr ;
+ *
  * x :: expr          compile-time constant (aliases, functions)
  * x := expr          runtime binding, range inferred
  * x : T = expr       runtime binding, range declared
@@ -167,6 +176,9 @@ static struct node *parse_binding(struct parser_context *p)
     return binding;
 }
 
+/*
+ * expr_stmt = expr ;
+ */
 static struct node *parse_expr_stmt(struct parser_context *p)
 {
     struct node *node = create_node(p, NODE_EXPR_STMT, p->current);
@@ -177,10 +189,20 @@ static struct node *parse_expr_stmt(struct parser_context *p)
 static struct node *parse_expr_internal(struct parser_context *p, int min_binding);
 
 static const struct binding_powers binding_table[] = {
-    [OP_OR] = { 1, 2 },    [OP_AND] = { 3, 4 },   [OP_EQ] = { 5, 6 },   [OP_NEQ] = { 5, 6 },
-    [OP_LT] = { 5, 6 },    [OP_GT] = { 5, 6 },    [OP_LE] = { 5, 6 },   [OP_GE] = { 5, 6 },
-    [OP_RANGE] = { 7, 8 }, [OP_ADD] = { 9, 10 },  [OP_SUB] = { 9, 10 }, [OP_MUL] = { 11, 12 },
-    [OP_DIV] = { 11, 12 }, [OP_MOD] = { 11, 12 },
+    [OP_OR] = {1, 2},
+    [OP_AND] = {3, 4},
+    [OP_EQ] = {5, 6},
+    [OP_NEQ] = {5, 6},
+    [OP_LT] = {5, 6},
+    [OP_GT] = {5, 6},
+    [OP_LE] = {5, 6},
+    [OP_GE] = {5, 6},
+    [OP_RANGE] = {7, 8},
+    [OP_ADD] = {9, 10},
+    [OP_SUB] = {9, 10},
+    [OP_MUL] = {11, 12},
+    [OP_DIV] = {11, 12},
+    [OP_MOD] = {11, 12},
 };
 
 static const int prefix_table[] = {
@@ -206,6 +228,9 @@ static bool is_non_assoc(enum op_type op)
     }
 }
 
+/*
+ * param = ID ":" expr ;
+ */
 static struct node *parse_param(struct parser_context *p)
 {
     struct node *node = create_node(p, NODE_PARAM, p->current);
@@ -216,6 +241,12 @@ static struct node *parse_param(struct parser_context *p)
     return node;
 }
 
+/*
+ * fn = "(" [ param { "," param } ] ")" expr block ;
+ *
+ * The "(" is already consumed by parse_prefix(). The expr after ")" is the
+ * return type.
+ */
 static struct node *parse_fn(struct parser_context *p)
 {
     struct node *node = create_node(p, NODE_FN, p->prev);
@@ -232,6 +263,14 @@ static struct node *parse_fn(struct parser_context *p)
     return node;
 }
 
+/*
+ * prefix = ID
+ *        | NUMBER                     decimal, hex, octal or binary
+ *        | "true" | "false"
+ *        | "(" expr ")"
+ *        | fn                         "(" ")" or "(" ID ":" starts a fn
+ *        | ( "-" | "!" ) expr ;
+ */
 static struct node *parse_prefix(struct parser_context *p)
 {
     struct node *node = NULL;
@@ -342,7 +381,7 @@ static int token_to_binop(enum token_type type, enum op_type *op)
 }
 
 /*
- * call = expr "(" [ expr { "," expr } ] ")"
+ * call = expr "(" [ expr { "," expr } ] ")" ;
  */
 static struct node *parse_call(struct parser_context *p, struct node *callee)
 {
@@ -361,6 +400,23 @@ static struct node *parse_call(struct parser_context *p, struct node *callee)
     return call;
 }
 
+/*
+ * expr = prefix
+ *      | expr binop expr
+ *      | call ;
+ *
+ * Ambiguous on purpose, the Pratt loop resolves it with the tables above.
+ * From lowest to highest:
+ *
+ *   ||                          left
+ *   &&                          left
+ *   == != < > <= >=             non-assoc
+ *   ..                          non-assoc
+ *   + -                         left
+ *   * / %                       left
+ *   - !            (prefix)
+ *   ( )            (call)
+ */
 static struct node *parse_expr_internal(struct parser_context *p, int min_binding)
 {
     struct node *rhs, *lhs = parse_prefix(p);
@@ -395,8 +451,12 @@ static struct node *parse_expr_internal(struct parser_context *p, int min_bindin
          */
         if (is_non_assoc(op) && token_to_binop(p->current.type, &next) &&
             binding_table[next].left == bp.left)
-            diag_emit(p->diag, ERROR, loc_of(p, p->current), "'%.*s' cannot be chained",
-                      (int)p->current.len, p->current.lex);
+            diag_emit(p->diag,
+                      ERROR,
+                      loc_of(p, p->current),
+                      "'%.*s' cannot be chained",
+                      (int)p->current.len,
+                      p->current.lex);
     }
 
     return lhs;
@@ -407,6 +467,9 @@ static struct node *parse_expr(struct parser_context *p)
     return parse_expr_internal(p, 0);
 }
 
+/*
+ * if = "if" expr block [ "else" ( if | block ) ] ;
+ */
 static struct node *parse_if(struct parser_context *p)
 {
     struct node *node = create_node(p, NODE_IF, p->current);
@@ -426,6 +489,13 @@ static struct node *parse_if(struct parser_context *p)
     return node;
 }
 
+/*
+ * loop = "loop" [ ID ":" ] [ expr ] block ;
+ *
+ *   loop { ... }              infinite
+ *   loop cond { ... }         while
+ *   loop i : 0..10 { ... }    i takes each value of the range
+ */
 static struct node *parse_loop(struct parser_context *p)
 {
     struct node *node = create_node(p, NODE_LOOP, p->current);
@@ -463,10 +533,11 @@ static parsing_fn *const stmt_vtable[] = {
  * blocks.
  *
  * stmt = ( binding
- *      | "ret" [ expr ]
- *      | if_stmt
- *      | block
- *      | expr ) ";" ;
+ *        | return
+ *        | if
+ *        | loop
+ *        | block
+ *        | expr_stmt ) ";" ;
  */
 static struct node *parse_stmt(struct parser_context *p)
 {
@@ -489,7 +560,7 @@ static struct node *parse_stmt(struct parser_context *p)
 
 /*
  * NODE_PROGRAM is just a cool block
- * program = stmt*
+ * program = { stmt } EOF ;
  */
 static struct node *parse_program(struct parser_context *p)
 {
@@ -579,7 +650,9 @@ static void print_node(struct node *n, size_t depth)
         print_node(n->expr_stmt.expr, depth + 1);
         break;
     case NODE_BINDING:
-        printf("[BINDING] '%.*s'%s\n", (int)n->tok.len, n->tok.lex,
+        printf("[BINDING] '%.*s'%s\n",
+               (int)n->tok.len,
+               n->tok.lex,
                n->binding.is_const ? " const" : "");
         if (n->binding.ann) {
             print_indent(depth + 1);

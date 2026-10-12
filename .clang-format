@@ -11,5 +11,7 @@ ContinuationIndentWidth: 4
 
 BreakBeforeBraces: Linux
 AllowShortFunctionsOnASingleLine: None
-Cpp11BracedListStyle: false
+Cpp11BracedListStyle: true
 SortIncludes: false
+
+BinPackArguments: false
