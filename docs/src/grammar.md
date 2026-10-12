@@ -7,68 +7,104 @@ inclusive). Names like `u8` or `bool` are ordinary constant bindings.
 ```ebnf
 program        = { stmt } ;
 
-(* Every statement ends in ";", including if and blocks. *)
-stmt           = ( binding
-                 | "ret" [ expr ]
-                 | if_stmt
-                 | block
-                 | expr ) ";" ;
-
-(* Blocks have no value: values leave a function through ret. *)
+stmt           = ( binding | return | if_stmt | loop_stmt | block | expr ) ";" ;
 block          = "{" { stmt } "}" ;
+return         = "ret" [ expr ] ;
+if_stmt        = "if" expr block [ "else" ( if_stmt | block ) ] ;
+loop_stmt      = "loop" ( ID "in" expr | expr ) block ;
 
-(*
- *   x :: expr          compile-time constant (aliases, functions)
- *   x := expr          runtime binding, range inferred
- *   x : T = expr       runtime binding, range declared
- *   x : T : expr       compile-time constant, range declared
- *
- * T is an expression evaluated at compile time, so a range or an alias
- * both work: x : 0..255 = 3, x : u8 = 3.
- * Bindings are immutable in the MVP.
- *)
 binding        = ID "::" expr
                | ID ":=" expr
                | ID ":" expr ( "=" | ":" ) expr ;
 
-(*
- * A function is an expression; its name comes from the binding.
- * If it declares a return range, every path must end in ret.
- *)
-fn_expr        = "(" [ param { "," param } [ "," ] ] ")" [ expr ] block ;
+expr           = expr binop expr
+               | prefix_op expr
+               | expr "(" [ args ] ")"
+               | primary ;
+binop          = "||" | "&&"
+               | "==" | "!=" | "<" | ">" | "<=" | ">="
+               | ".." | "+" | "-" | "*" | "/" | "%" ;
+prefix_op      = "-" | "!" ;
+args           = expr { "," expr } ;
+
+primary        = literal | ID | "(" expr ")" | fn_expr ;
+fn_expr        = "(" [ params ] ")" [ expr ] block ;
+params         = param { "," param } ;
 param          = ID ":" expr ;
-
-(* Comparisons in the condition narrow ranges inside each branch. *)
-if_stmt        = "if" expr block [ "else" ( if_stmt | block ) ] ;
-
-expr           = range ;
-
-range          = logic_or [ ".." logic_or ] ;
-logic_or       = logic_and { "||" logic_and } ;
-logic_and      = equality { "&&" equality } ;
-
-(* Comparisons do not chain: a < b < c is an error. *)
-equality       = relational [ ( "==" | "!=" ) relational ] ;
-relational     = additive [ ( "<" | ">" | "<=" | ">=" ) additive ] ;
-
-additive       = multiplicative { ( "+" | "-" ) multiplicative } ;
-multiplicative = unary { "*" unary } ;
-
-unary          = ( "-" | "!" ) unary
-               | postfix ;
-
-postfix        = primary { "(" [ arg_list ] ")" } ;
-arg_list       = expr { "," expr } [ "," ] ;
-
-primary        = literal
-               | ID
-               | "(" expr ")"
-               | fn_expr ;
 
 literal        = NUMBER | HEX | OCTAL | BINARY | "true" | "false" ;
 ```
 
-Example:
+## Statements
+
+Every statement ends in `;`, including `if` and blocks. Blocks have no value:
+values leave a function only through `ret`.
+
+## Loops
+
+`loop i in a..b { ... }` runs the block once for each value of the range, in
+order. Inside the block, `i` has the range of the loop:
+
+```
+loop i in 0..9 {
+    // i : 0..9
+};
+```
+
+The range is any expression, so an alias works too: `loop i in u8 { ... }`.
+
+`loop cond { ... }` runs the block while `cond` holds. The parser tells both
+forms apart by looking past `loop`: `ID in` starts a range loop, anything else
+is a condition.
+
+## Bindings
+
+| Form          | Meaning                                   |
+|---------------|-------------------------------------------|
+| `x :: e`      | compile-time constant (aliases, functions) |
+| `x := e`      | runtime binding, range inferred           |
+| `x : T = e`   | runtime binding, range declared           |
+| `x : T : e`   | compile-time constant, range declared     |
+
+`T` is an expression evaluated at compile time, so a range or an alias both
+work: `x : 0..255 = 3`, `x : u8 = 3`. Bindings are immutable in the MVP.
+
+## Functions
+
+A function is an expression; its name comes from the binding it is assigned
+to. If it declares a return range, every path must end in `ret`.
+
+`fn_expr` and a parenthesized expression both start with `(`. The parser
+tells them apart by looking past it: `()` or `( ID :` starts a function,
+anything else is grouping.
+
+## Expressions
+
+The `expr` rule is ambiguous on purpose: the parser is a Pratt parser, and
+how operators group comes from this table, from lowest to highest precedence:
+
+| Operators                   | Associativity |
+|-----------------------------|---------------|
+| `\|\|`                      | left          |
+| `&&`                        | left          |
+| `==` `!=` `<` `>` `<=` `>=` | none          |
+| `..`                        | none          |
+| `+` `-`                     | left          |
+| `*` `/` `%`                 | left          |
+| `-` `!` (prefix)            | right         |
+| call `f(x)`                 | left          |
+
+Non-associative operators do not chain: `a < b < c` and `a..b..c` are errors.
+Since ranges bind tighter than comparisons, `x < 0..10` is `x < (0..10)`, and
+since they bind looser than arithmetic, `0..n + 1` is `0..(n + 1)`.
+
+In `if` and `loop`, the expression ends where the block starts: `{` cannot
+continue an expression.
+
+## Comparisons narrow ranges
+
+Inside each branch of an `if`, the comparisons in the condition narrow the
+ranges of the values they test:
 
 ```
 u8 :: 0..255;
@@ -92,13 +128,12 @@ classify :: (i: 0..1000) 0..2 {
 - `BINARY`: `0b[01]+`
 - `ID`: `[a-zA-Z_][a-zA-Z0-9_]*`, except keywords
 
-Keywords: `if`, `else`, `ret`, `in`, `true`, `false`.
+Keywords: `if`, `else`, `loop`, `in`, `ret`, `true`, `false`.
 
-Reserved for later: `loop`, `break`, `continue`, `obj`, `enum`, `import`.
+Reserved for later: `break`, `continue`, `obj`, `enum`, `import`.
 
 ## Not in the MVP
 
 Block values and `if` as an expression, runtime bounds (`x in 0..9 else { … }`),
-division and modulo (they need the divisor to exclude 0), loops, reassignment,
-arrays, open ranges (`..9`), unions of ranges (`0..3 | 10..12`), `distinct`,
+reassignment, arrays, open ranges (`..9`), unions of ranges (`0..3 | 10..12`), `distinct`,
 floats, strings and pointers.
