@@ -1,6 +1,6 @@
-#include "str-buf.h"
-#include "wrapper.h"
-#include "log.h"
+#include "support/str-buf.h"
+#include "support/wrapper.h"
+#include "support/log.h"
 
 #include <stdarg.h>
 #include <stdio.h>

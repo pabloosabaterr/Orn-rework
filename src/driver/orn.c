@@ -1,8 +1,8 @@
-#include "compiler.h"
-#include "lexer.h"
-#include "parse-options.h"
-#include "parser.h"
-#include "orn.h"
+#include "driver/compiler.h"
+#include "frontend/lexer.h"
+#include "support/parse-options.h"
+#include "frontend/parser.h"
+#include "driver/orn.h"
 
 static void orn_run_pipeline(struct compiler_context *cc)
 {

@@ -11,6 +11,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check layer dependencies
+        run: make layers
+
       - name: Build
         run: make
 

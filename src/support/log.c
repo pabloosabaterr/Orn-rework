@@ -1,5 +1,5 @@
-#include "log.h"
-#include "attrs.h"
+#include "support/log.h"
+#include "support/attrs.h"
 
 #include <stdarg.h>
 #include <stdio.h>

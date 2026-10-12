@@ -1,6 +1,6 @@
-#include "io.h"
-#include "log.h"
-#include "wrapper.h"
+#include "support/io.h"
+#include "support/log.h"
+#include "support/wrapper.h"
 #include <stdio.h>
 
 char *read_file(const char *path)

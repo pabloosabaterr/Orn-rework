@@ -24,18 +24,21 @@ NAME = orn
 TARGET = build/$(NAME)
 
 SRC  = src/main.c
-SRC += src/compiler.c
-SRC += src/diagnostic.c
-SRC += src/lexer.c
-SRC += src/arena.c
-SRC += src/hashmap.c
-SRC += src/str-buf.c
-SRC += src/wrapper.c
-SRC += src/log.c
-SRC += src/parser.c
-SRC += src/parse-options.c
-SRC += src/io.c
-SRC += src/orn.c
+
+SRC += src/driver/orn.c
+SRC += src/driver/compiler.c
+
+SRC += src/frontend/lexer.c
+SRC += src/frontend/parser.c
+SRC += src/frontend/diagnostic.c
+
+SRC += src/support/arena.c
+SRC += src/support/hashmap.c
+SRC += src/support/str-buf.c
+SRC += src/support/wrapper.c
+SRC += src/support/log.c
+SRC += src/support/io.c
+SRC += src/support/parse-options.c
 
 OBJ = $(SRC:src/%.c=build/obj/%.o)
 DEP = $(OBJ:.o=.d)
@@ -68,6 +71,13 @@ test:
 work:
 	grep -rn "NEEDSWORK" src/ --color=always
 
+# Cada capa solo puede incluir capas inferiores: support < frontend < driver
+layers:
+	@! grep -rnE '#include "(frontend|driver)/' src/support/ || \
+		{ echo "support/ no puede depender de frontend/ ni driver/"; exit 1; }
+	@! grep -rnE '#include "driver/' src/frontend/ || \
+		{ echo "frontend/ no puede depender de driver/"; exit 1; }
+
 clean:
 	rm -rf build/
 
@@ -75,4 +85,4 @@ clean:
 
 .DELETE_ON_ERROR:
 FORCE:
-.PHONY: all run test san work clean FORCE
+.PHONY: all run test san work layers clean FORCE

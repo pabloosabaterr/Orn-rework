@@ -1,7 +1,7 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#include "source.h"
+#include "frontend/source.h"
 #include <stddef.h>
 
 struct compiler_context;

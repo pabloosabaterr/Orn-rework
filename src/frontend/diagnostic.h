@@ -1,7 +1,7 @@
 #ifndef DIAGNOSTIC_H
 #define DIAGNOSTIC_H
 
-#include "attrs.h"
+#include "support/attrs.h"
 #include <stddef.h>
 #include <stdio.h>
 

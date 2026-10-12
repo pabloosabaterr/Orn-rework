@@ -1,5 +1,5 @@
-#include "hashmap.h"
-#include "wrapper.h"
+#include "support/hashmap.h"
+#include "support/wrapper.h"
 
 #include <stdlib.h>
 #include <string.h>

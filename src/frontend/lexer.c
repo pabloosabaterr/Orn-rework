@@ -1,8 +1,7 @@
-#include "lexer.h"
-#include "diagnostic.h"
-#include "source.h"
-#include "wrapper.h"
-#include "compiler.h"
+#include "frontend/lexer.h"
+#include "frontend/diagnostic.h"
+#include "frontend/source.h"
+#include "support/wrapper.h"
 
 #include <ctype.h>
 #include <stdio.h>

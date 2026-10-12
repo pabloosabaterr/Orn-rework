@@ -3,10 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "parser.h"
-#include "arena.h"
-#include "diagnostic.h"
-#include "lexer.h"
+#include "frontend/parser.h"
+#include "support/arena.h"
+#include "frontend/diagnostic.h"
+#include "frontend/lexer.h"
 
 static struct token peek_at(struct parser_context *p, unsigned n)
 {

@@ -1,5 +1,5 @@
-#include "arena.h"
-#include "wrapper.h"
+#include "support/arena.h"
+#include "support/wrapper.h"
 
 #include <assert.h>
 #include <stdio.h>

@@ -1,7 +1,7 @@
 #ifndef STR_BUF_H
 #define STR_BUF_H
 
-#include "attrs.h"
+#include "support/attrs.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <stdarg.h>

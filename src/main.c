@@ -1,10 +1,6 @@
-#include "compiler.h"
-#include "orn.h"
-#include "parser.h"
+#include "driver/compiler.h"
+#include "driver/orn.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 int main(int argc, char **argv)
 {

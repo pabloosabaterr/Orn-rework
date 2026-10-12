@@ -1,7 +1,7 @@
-#include "diagnostic.h"
-#include "str-buf.h"
-#include "wrapper.h"
-#include "source.h"
+#include "frontend/diagnostic.h"
+#include "support/str-buf.h"
+#include "support/wrapper.h"
+#include "frontend/source.h"
 
 #include <stdarg.h>
 #include <stddef.h>

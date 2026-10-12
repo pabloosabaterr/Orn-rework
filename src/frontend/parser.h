@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "diagnostic.h"
-#include "lexer.h"
+#include "frontend/diagnostic.h"
+#include "frontend/lexer.h"
 
 struct compiler_context;
 struct diag_context;

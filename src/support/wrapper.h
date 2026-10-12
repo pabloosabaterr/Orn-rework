@@ -1,7 +1,7 @@
 #ifndef WRAPPER_H
 #define WRAPPER_H
 
-#include "log.h"
+#include "support/log.h"
 
 #include <stddef.h>
 #include <stdint.h>

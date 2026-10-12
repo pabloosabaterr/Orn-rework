@@ -1,9 +1,9 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
-#include "diagnostic.h"
-#include "arena.h"
-#include "source.h"
+#include "frontend/diagnostic.h"
+#include "support/arena.h"
+#include "frontend/source.h"
 
 struct compiler_context {
     struct arena arena;

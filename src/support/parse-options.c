@@ -1,5 +1,5 @@
-#include "parse-options.h"
-#include "log.h"
+#include "support/parse-options.h"
+#include "support/log.h"
 
 #include <stddef.h>
 #include <string.h>
