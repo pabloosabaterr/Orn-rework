@@ -53,7 +53,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2fb20292.js";
+            window.path_to_searchindex_js = "searchindex-6ee2a04f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-73e76ee1.js"></script>
@@ -263,67 +263,94 @@ built-in types, only sets of integer values written as <code>lo..hi</code> (both
 inclusive). Names like <code>u8</code> or <code>bool</code> are ordinary constant bindings.</p>
 <pre><code class="language-ebnf">program        = { stmt } ;
 
-(* Every statement ends in ";", including if and blocks. *)
-stmt           = ( binding
-                 | "ret" [ expr ]
-                 | if_stmt
-                 | block
-                 | expr ) ";" ;
-
-(* Blocks have no value: values leave a function through ret. *)
+stmt           = ( binding | return | if_stmt | loop_stmt | block | expr ) ";" ;
 block          = "{" { stmt } "}" ;
+return         = "ret" [ expr ] ;
+if_stmt        = "if" expr block [ "else" ( if_stmt | block ) ] ;
+loop_stmt      = "loop" ID "in" expr block ;
 
-(*
- *   x :: expr          compile-time constant (aliases, functions)
- *   x := expr          runtime binding, range inferred
- *   x : T = expr       runtime binding, range declared
- *   x : T : expr       compile-time constant, range declared
- *
- * T is an expression evaluated at compile time, so a range or an alias
- * both work: x : 0..255 = 3, x : u8 = 3.
- * Bindings are immutable in the MVP.
- *)
 binding        = ID "::" expr
                | ID ":=" expr
                | ID ":" expr ( "=" | ":" ) expr ;
 
-(*
- * A function is an expression; its name comes from the binding.
- * If it declares a return range, every path must end in ret.
- *)
-fn_expr        = "(" [ param { "," param } [ "," ] ] ")" [ expr ] block ;
-param          = ID ":" expr ;
-
-(* Comparisons in the condition narrow ranges inside each branch. *)
-if_stmt        = "if" expr block [ "else" ( if_stmt | block ) ] ;
-
-expr           = range ;
-
-range          = logic_or [ ".." logic_or ] ;
+expr           = logic_or ;
 logic_or       = logic_and { "||" logic_and } ;
-logic_and      = equality { "&amp;&amp;" equality } ;
-
-(* Comparisons do not chain: a &lt; b &lt; c is an error. *)
-equality       = relational [ ( "==" | "!=" ) relational ] ;
-relational     = additive [ ( "&lt;" | "&gt;" | "&lt;=" | "&gt;=" ) additive ] ;
-
+logic_and      = comparison { "&amp;&amp;" comparison } ;
+comparison     = range [ ( "==" | "!=" | "&lt;" | "&gt;" | "&lt;=" | "&gt;=" ) range ] ;
+range          = additive [ ".." additive ] ;
 additive       = multiplicative { ( "+" | "-" ) multiplicative } ;
-multiplicative = unary { "*" unary } ;
+multiplicative = unary { ( "*" | "/" | "%" ) unary } ;
+unary          = ( "-" | "!" ) unary | postfix ;
+postfix        = primary { "(" [ args ] ")" } ;
+args           = expr { "," expr } ;
 
-unary          = ( "-" | "!" ) unary
-               | postfix ;
-
-postfix        = primary { "(" [ arg_list ] ")" } ;
-arg_list       = expr { "," expr } [ "," ] ;
-
-primary        = literal
-               | ID
-               | "(" expr ")"
-               | fn_expr ;
+primary        = literal | ID | "(" expr ")" | fn_expr ;
+fn_expr        = "(" [ params ] ")" [ expr ] block ;
+params         = param { "," param } ;
+param          = ID ":" expr ;
 
 literal        = NUMBER | HEX | OCTAL | BINARY | "true" | "false" ;
 </code></pre>
-<p>Example:</p>
+<h2 id="statements"><a class="header" href="#statements">Statements</a></h2>
+<p>Every statement ends in <code>;</code>, including <code>if</code> and blocks. Blocks have no value:
+values leave a function only through <code>ret</code>.</p>
+<h2 id="loops"><a class="header" href="#loops">Loops</a></h2>
+<p><code>loop i in a..b { ... }</code> runs the block once for each value of the range, in
+order. Inside the block, <code>i</code> has the range of the loop:</p>
+<pre><code>loop i in 0..9 {
+    // i : 0..9
+};
+</code></pre>
+<p>The range is any expression, so an alias works too: <code>loop i in u8 { ... }</code>.</p>
+<h2 id="bindings"><a class="header" href="#bindings">Bindings</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Form</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>x :: e</code></td><td>compile-time constant (aliases, functions)</td></tr>
+<tr><td><code>x := e</code></td><td>runtime binding, range inferred</td></tr>
+<tr><td><code>x : T = e</code></td><td>runtime binding, range declared</td></tr>
+<tr><td><code>x : T : e</code></td><td>compile-time constant, range declared</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>T</code> is an expression evaluated at compile time, so a range or an alias both
+work: <code>x : 0..255 = 3</code>, <code>x : u8 = 3</code>. Bindings are immutable in the MVP.</p>
+<h2 id="functions"><a class="header" href="#functions">Functions</a></h2>
+<p>A function is an expression; its name comes from the binding it is assigned
+to. If it declares a return range, every path must end in <code>ret</code>.</p>
+<p><code>fn_expr</code> and a parenthesized expression both start with <code>(</code>. The parser
+tells them apart by looking past it: <code>()</code> or <code>( ID :</code> starts a function,
+anything else is grouping.</p>
+<h2 id="expressions"><a class="header" href="#expressions">Expressions</a></h2>
+<p>From lowest to highest precedence:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Level</th><th>Operators</th><th>Associativity</th></tr>
+</thead>
+<tbody>
+<tr><td>logic_or</td><td><code>||</code></td><td>left</td></tr>
+<tr><td>logic_and</td><td><code>&amp;&amp;</code></td><td>left</td></tr>
+<tr><td>comparison</td><td><code>==</code> <code>!=</code> <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code></td><td>none</td></tr>
+<tr><td>range</td><td><code>..</code></td><td>none</td></tr>
+<tr><td>additive</td><td><code>+</code> <code>-</code></td><td>left</td></tr>
+<tr><td>multiplicative</td><td><code>*</code> <code>/</code> <code>%</code></td><td>left</td></tr>
+<tr><td>unary</td><td><code>-</code> <code>!</code> (prefix)</td><td>right</td></tr>
+<tr><td>postfix</td><td>call <code>f(x)</code></td><td>left</td></tr>
+</tbody>
+</table>
+</div>
+<p>Non-associative operators do not chain: <code>a &lt; b &lt; c</code> and <code>a..b..c</code> are errors.
+Since ranges bind tighter than comparisons, <code>x &lt; 0..10</code> is <code>x &lt; (0..10)</code>, and
+since they bind looser than arithmetic, <code>0..n + 1</code> is <code>0..(n + 1)</code>.</p>
+<p>In <code>if</code> and <code>loop</code>, the expression ends where the block starts: <code>{</code> cannot
+continue an expression.</p>
+<h2 id="comparisons-narrow-ranges"><a class="header" href="#comparisons-narrow-ranges">Comparisons narrow ranges</a></h2>
+<p>Inside each branch of an <code>if</code>, the comparisons in the condition narrow the
+ranges of the values they test:</p>
 <pre><code>u8 :: 0..255;
 
 classify :: (i: 0..1000) 0..2 {
@@ -344,12 +371,11 @@ classify :: (i: 0..1000) 0..2 {
 <li><code>BINARY</code>: <code>0b[01]+</code></li>
 <li><code>ID</code>: <code>[a-zA-Z_][a-zA-Z0-9_]*</code>, except keywords</li>
 </ul>
-<p>Keywords: <code>if</code>, <code>else</code>, <code>ret</code>, <code>in</code>, <code>true</code>, <code>false</code>.</p>
-<p>Reserved for later: <code>loop</code>, <code>break</code>, <code>continue</code>, <code>obj</code>, <code>enum</code>, <code>import</code>.</p>
+<p>Keywords: <code>if</code>, <code>else</code>, <code>loop</code>, <code>in</code>, <code>ret</code>, <code>true</code>, <code>false</code>.</p>
+<p>Reserved for later: <code>break</code>, <code>continue</code>, <code>obj</code>, <code>enum</code>, <code>import</code>.</p>
 <h2 id="not-in-the-mvp"><a class="header" href="#not-in-the-mvp">Not in the MVP</a></h2>
 <p>Block values and <code>if</code> as an expression, runtime bounds (<code>x in 0..9 else { … }</code>),
-division and modulo (they need the divisor to exclude 0), loops, reassignment,
-arrays, open ranges (<code>..9</code>), unions of ranges (<code>0..3 | 10..12</code>), <code>distinct</code>,
+reassignment, arrays, open ranges (<code>..9</code>), unions of ranges (<code>0..3 | 10..12</code>), <code>distinct</code>,
 floats, strings and pointers.</p>
 
                     </main>
