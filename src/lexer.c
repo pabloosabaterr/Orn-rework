@@ -124,7 +124,7 @@ static inline int is_next(struct lexer_context *lexer, char c)
 }
 
 #define is_end(lexer) (is_next(lexer, '\0'))
-#define create_token(type, start, len) \
+#define create_token(type, start, len)                                                             \
     ((struct token){ type, start, len, lexer->line, lexer->col - (int)(len) })
 
 static char advance(struct lexer_context *lexer)

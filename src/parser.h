@@ -152,9 +152,9 @@ struct node {
     };
 };
 
-#define foreach_node(var, list) \
-    for (struct node **_p = (list).items, *var; \
-         _p < (list).items + (list).nr && ((var) = *_p, 1); _p++)
+#define foreach_node(var, list)                                                                    \
+    for (struct node **_p = (list).items, *var; _p < (list).items + (list).nr && ((var) = *_p, 1); \
+         _p++)
 
 #define PARSER_AST_NODE_INIT { .type = NODE_ERROR }
 

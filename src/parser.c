@@ -180,20 +180,10 @@ static struct node *parse_expr_stmt(struct parser_context *p)
 static struct node *parse_expr_internal(struct parser_context *p, int min_binding);
 
 static const struct binding_powers binding_table[] = {
-    [OP_OR]    = { 1,  2 },
-    [OP_AND]   = { 3,  4 },
-    [OP_EQ]    = { 5,  6 },
-    [OP_NEQ]   = { 5,  6 },
-    [OP_LT]    = { 5,  6 },
-    [OP_GT]    = { 5,  6 },
-    [OP_LE]    = { 5,  6 },
-    [OP_GE]    = { 5,  6 },
-    [OP_RANGE] = { 7,  8 },
-    [OP_ADD]   = { 9, 10 },
-    [OP_SUB]   = { 9, 10 },
-    [OP_MUL]   = { 11, 12 },
-    [OP_DIV]   = { 11, 12 },
-    [OP_MOD]   = { 11, 12 },
+    [OP_OR] = { 1, 2 },    [OP_AND] = { 3, 4 },   [OP_EQ] = { 5, 6 },   [OP_NEQ] = { 5, 6 },
+    [OP_LT] = { 5, 6 },    [OP_GT] = { 5, 6 },    [OP_LE] = { 5, 6 },   [OP_GE] = { 5, 6 },
+    [OP_RANGE] = { 7, 8 }, [OP_ADD] = { 9, 10 },  [OP_SUB] = { 9, 10 }, [OP_MUL] = { 11, 12 },
+    [OP_DIV] = { 11, 12 }, [OP_MOD] = { 11, 12 },
 };
 
 static const int prefix_table[] = {
@@ -219,12 +209,12 @@ static bool is_non_assoc(enum op_type op)
     }
 }
 
-static  struct node *parse_param(struct parser_context *p)
+static struct node *parse_param(struct parser_context *p)
 {
     struct node *node = create_node(p, NODE_PARAM, p->current);
     advance_token(p);
     expect_token(p, TK_COLON);
-    node->param.ann = parse_expr(p); 
+    node->param.ann = parse_expr(p);
 
     return node;
 }
@@ -269,8 +259,7 @@ static struct node *parse_prefix(struct parser_context *p)
         break;
     case TK_LPAREN:
         advance_token(p);
-        if (check(p, TK_RPAREN) ||
-            (check(p, TK_ID) && peek_at(p, 0).type == TK_COLON)) {
+        if (check(p, TK_RPAREN) || (check(p, TK_ID) && peek_at(p, 0).type == TK_COLON)) {
             node = parse_fn(p);
         } else {
             node = parse_expr(p);
@@ -295,11 +284,8 @@ static struct node *parse_prefix(struct parser_context *p)
     return node;
 }
 
-static struct node *build_op_node(struct parser_context *p,
-                                  struct token tok,
-                                  enum op_type op,
-                                  struct node *lhs,
-                                  struct node *rhs)
+static struct node *build_op_node(struct parser_context *p, struct token tok, enum op_type op,
+                                  struct node *lhs, struct node *rhs)
 {
     struct node *node = create_node(p, NODE_BINARY, tok);
     node->binary.type = op;
@@ -311,21 +297,50 @@ static struct node *build_op_node(struct parser_context *p,
 static int token_to_binop(enum token_type type, enum op_type *op)
 {
     switch (type) {
-    case TK_PLUS:  *op = OP_ADD;   return true;
-    case TK_MINUS: *op = OP_SUB;   return true;
-    case TK_STAR:  *op = OP_MUL;   return true;
-    case TK_SLASH: *op = OP_DIV;   return true;
-    case TK_MOD:   *op = OP_MOD;   return true;
-    case TK_CMP:   *op = OP_EQ;    return true;
-    case TK_NEQ:   *op = OP_NEQ;   return true;
-    case TK_LT:    *op = OP_LT;    return true;
-    case TK_GT:    *op = OP_GT;    return true;
-    case TK_LE:    *op = OP_LE;    return true;
-    case TK_GE:    *op = OP_GE;    return true;
-    case TK_AND:   *op = OP_AND;   return true;
-    case TK_OR:    *op = OP_OR;    return true;
-    case TK_RANGE: *op = OP_RANGE; return true;
-    default:                       return false;
+    case TK_PLUS:
+        *op = OP_ADD;
+        return true;
+    case TK_MINUS:
+        *op = OP_SUB;
+        return true;
+    case TK_STAR:
+        *op = OP_MUL;
+        return true;
+    case TK_SLASH:
+        *op = OP_DIV;
+        return true;
+    case TK_MOD:
+        *op = OP_MOD;
+        return true;
+    case TK_CMP:
+        *op = OP_EQ;
+        return true;
+    case TK_NEQ:
+        *op = OP_NEQ;
+        return true;
+    case TK_LT:
+        *op = OP_LT;
+        return true;
+    case TK_GT:
+        *op = OP_GT;
+        return true;
+    case TK_LE:
+        *op = OP_LE;
+        return true;
+    case TK_GE:
+        *op = OP_GE;
+        return true;
+    case TK_AND:
+        *op = OP_AND;
+        return true;
+    case TK_OR:
+        *op = OP_OR;
+        return true;
+    case TK_RANGE:
+        *op = OP_RANGE;
+        return true;
+    default:
+        return false;
     }
 }
 
@@ -439,14 +454,14 @@ static struct node *parse_stmt(struct parser_context *p)
     struct node *stmt;
     parsing_fn *fn;
 
-    fn = type < ARRAY_SIZE(stmt_vtable) ?  stmt_vtable[type] : NULL;
+    fn = type < ARRAY_SIZE(stmt_vtable) ? stmt_vtable[type] : NULL;
 
     if (fn)
         stmt = fn(p);
     else if (check(p, TK_ID) && is_binding_op(peek_at(p, 0).type))
-            stmt = parse_binding(p);
+        stmt = parse_binding(p);
     else
-            stmt = parse_expr_stmt(p);
+        stmt = parse_expr_stmt(p);
 
     expect_token(p, TK_SEMICOLON);
     return stmt;
