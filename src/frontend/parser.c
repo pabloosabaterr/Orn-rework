@@ -35,7 +35,7 @@ static struct token advance(struct parser_context *p)
         p->token_queue_nr--;
         p->current = poped;
     } else {
-        next_token(p->lexer);
+        p->current = next_token(p->lexer);
     }
 
     if (p->prev.type == TK_UNINIT)
@@ -409,8 +409,20 @@ static struct node *parse_expr(struct parser_context *p)
 
 static struct node *parse_if(struct parser_context *p)
 {
-    struct node *node = create_node(p, NODE_ERROR, p->current);
+    struct node *node = create_node(p, NODE_IF, p->current);
     advance(p);
+
+    node->if_stmt.cond = parse_expr(p);
+    node->if_stmt.then_body = parse_block(p);
+
+    if (check(p, TK_ELSE)) {
+        advance(p);
+        if (check(p, TK_IF))
+            node->if_stmt.else_body = parse_if(p);
+        else
+            node->if_stmt.else_body = parse_block(p);
+    }
+
     return node;
 }
 
@@ -504,6 +516,20 @@ static void print_node(struct node *n, size_t depth)
     print_indent(depth);
 
     switch (n->type) {
+    case NODE_IF:
+        printf("[IF]\n");
+        print_indent(depth + 1);
+        printf("[COND]\n");
+        print_node(n->if_stmt.cond, depth + 2);
+        print_indent(depth + 1);
+        printf("[THEN]\n");
+        print_node(n->if_stmt.then_body, depth + 2);
+        if (n->if_stmt.else_body) {
+            print_indent(depth + 1);
+            printf("[ELSE]\n");
+            print_node(n->if_stmt.else_body, depth + 2);
+        }
+        break;
     case NODE_PROGRAM:
     case NODE_BLOCK:
         printf("%s\n", n->type == NODE_PROGRAM ? "[PROGRAM]" : "[BLOCK]");
