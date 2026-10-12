@@ -12,45 +12,41 @@ struct diag_context;
 struct arena;
 
 enum node_type {
-    NODE_PROGRAM,
-    NODE_ERROR,
-
-    NODE_BINDING,
-
-    NODE_BLOCK,
-    NODE_RETURN,
-    NODE_EXPR_STMT,
-
-    NODE_IF,
     NODE_BINARY,
-    NODE_UNARY,
-    NODE_CALL,
-
-    NODE_FN,
-    NODE_PARAM,
-
-    NODE_NUMBER,
+    NODE_BINDING,
+    NODE_BLOCK,
     NODE_BOOL,
+    NODE_CALL,
+    NODE_ERROR,
+    NODE_EXPR_STMT,
+    NODE_FN,
     NODE_ID,
+    NODE_IF,
+    NODE_LOOP,
+    NODE_NUMBER,
+    NODE_PARAM,
+    NODE_PROGRAM,
+    NODE_RETURN,
+    NODE_UNARY,
 };
 
 enum op_type {
     OP_ADD,
-    OP_SUB,
-    OP_MUL,
+    OP_AND,
+    OP_DIV,
     OP_EQ,
-    OP_NEQ,
-    OP_LT,
+    OP_GE,
     OP_GT,
     OP_LE,
-    OP_GE,
-    OP_AND,
+    OP_LT,
+    OP_MOD,
+    OP_MUL,
+    OP_NEG,
+    OP_NEQ,
+    OP_NOT,
     OP_OR,
     OP_RANGE,
-    OP_NEG,
-    OP_NOT,
-    OP_DIV,
-    OP_MOD,
+    OP_SUB,
 };
 
 struct binding_powers {
@@ -76,6 +72,12 @@ struct node {
         struct {
             struct node_list stmts;
         } block;
+
+        struct {
+            struct node *var;
+            struct node *cond;
+            struct node *block;
+        } loop;
 
         /*
          * The single rule. Name is in tok.

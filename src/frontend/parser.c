@@ -428,8 +428,19 @@ static struct node *parse_if(struct parser_context *p)
 
 static struct node *parse_loop(struct parser_context *p)
 {
-    struct node *node = create_node(p, NODE_ERROR, p->current);
+    struct node *node = create_node(p, NODE_LOOP, p->current);
     advance(p);
+
+    if (check(p, TK_ID) && peek(p, 0).type == TK_COLON) {
+        node->loop.var = create_node(p, NODE_ID, p->current);
+        advance(p);
+        advance(p);
+    }
+
+    if (!check(p, TK_LBRACE))
+        node->loop.cond = parse_expr(p);
+
+    node->loop.block = parse_block(p);
     return node;
 }
 
@@ -516,6 +527,16 @@ static void print_node(struct node *n, size_t depth)
     print_indent(depth);
 
     switch (n->type) {
+    case NODE_LOOP:
+        printf("[LOOP]\n");
+        print_node(n->loop.var, depth + 1);
+        if (n->loop.cond) {
+            print_indent(depth + 1);
+            printf("[COND]\n");
+            print_node(n->loop.cond, depth + 2);
+        }
+        print_node(n->loop.block, depth + 1);
+        break;
     case NODE_IF:
         printf("[IF]\n");
         print_indent(depth + 1);
