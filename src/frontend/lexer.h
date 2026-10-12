@@ -113,12 +113,12 @@ void lexer_init(struct lexer_context *ctx, const struct source_file *file,
  * Get the next token.
  * Consumes tokens each time is called and doesn't have the option to go back.
  */
-struct token lexer_get_next_token(struct lexer_context *ctx);
+struct token next_token(struct lexer_context *ctx);
 /*
  * Dumps all the tokens into stdout.
  * Consumes all the tokens in the process.
  */
 int lexer_dump_tokens(struct lexer_context *ctx);
-const char *lexer_get_token_pretty(enum token_type type);
+const char *token_pretty(enum token_type type);
 
 #endif

@@ -79,7 +79,7 @@ static const char *token_type_str(enum token_type type)
     return "UNKNOWN";
 }
 
-const char *lexer_get_token_pretty(enum token_type type)
+const char *token_pretty(enum token_type type)
 {
     switch (type) {
     case TK_SEMICOLON:
@@ -419,7 +419,7 @@ void lexer_init(struct lexer_context *ctx, const struct source_file *file,
     ctx->col = 0;
 }
 
-struct token lexer_get_next_token(struct lexer_context *lexer)
+struct token next_token(struct lexer_context *lexer)
 {
     const char *start;
     char c;
@@ -548,7 +548,7 @@ int lexer_dump_tokens(struct lexer_context *lexer)
     struct token token;
     int errors = 0;
 
-    while ((token = lexer_get_next_token(lexer)).type != TK_EOF) {
+    while ((token = next_token(lexer)).type != TK_EOF) {
         if (token.type == TK_ERROR) {
             errors++;
             continue;

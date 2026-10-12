@@ -8,38 +8,35 @@
 #include "frontend/diagnostic.h"
 #include "frontend/lexer.h"
 
-static struct token peek_at(struct parser_context *p, unsigned n)
+static struct token peek(struct parser_context *p, unsigned n)
 {
     assert(n < 4);
 
     while (p->token_queue_nr <= n)
-        p->token_queue[p->token_queue_nr++] = lexer_get_next_token(p->lexer);
+        p->token_queue[p->token_queue_nr++] = next_token(p->lexer);
 
     return p->token_queue[n];
-}
-
-static struct token pop_token(struct parser_context *p)
-{
-    assert(p->token_queue_nr);
-
-    struct token poped = *p->token_queue;
-
-    for (size_t i = 1; i < p->token_queue_nr; i++) {
-        p->token_queue[i - 1] = p->token_queue[i];
-    }
-
-    p->token_queue_nr--;
-    return poped;
 }
 
 /*
  * Advances the current token with the next one.
  * Returns the previous "current" token.
  */
-static struct token advance_token(struct parser_context *p)
+static struct token advance(struct parser_context *p)
 {
     p->prev = p->current;
-    p->current = p->token_queue_nr ? pop_token(p) : lexer_get_next_token(p->lexer);
+    if (p->token_queue_nr) {
+        struct token poped = *p->token_queue;
+
+        for (size_t i = 1; i < p->token_queue_nr; i++) {
+            p->token_queue[i - 1] = p->token_queue[i];
+        }
+
+        p->token_queue_nr--;
+        p->current = poped;
+    } else {
+        next_token(p->lexer);
+    }
 
     if (p->prev.type == TK_UNINIT)
         p->prev = p->current;
@@ -58,7 +55,7 @@ static bool match(struct parser_context *p, enum token_type type)
 {
     if (!check(p, type))
         return false;
-    advance_token(p);
+    advance(p);
     return true;
 }
 
@@ -82,7 +79,7 @@ static void expect_token(struct parser_context *p, enum token_type type)
 {
     if (!match(p, type))
         diag_emit(p->diag, ERROR, loc_from_token(p), "expected '%s' after '%.*s'",
-                  lexer_get_token_pretty(type), (int)p->prev.len, p->prev.lex);
+                  token_pretty(type), (int)p->prev.len, p->prev.lex);
 }
 
 static struct node *create_node(struct parser_context *p, enum node_type type, struct token token)
@@ -146,8 +143,8 @@ static struct node *parse_binding(struct parser_context *p)
     struct token op;
 
     /* Whether it is ::, := or : is already checked at parse_stmt() */
-    advance_token(p); /* skip the name */
-    op = advance_token(p);
+    advance(p); /* skip the name */
+    op = advance(p);
 
     switch (op.type) {
     case TK_DECL: /* x :: e */
@@ -163,7 +160,7 @@ static struct node *parse_binding(struct parser_context *p)
             expect_token(p, TK_EQUAL);
         break;
     default:
-        BUG("parse_binding: unexpected '%s'", lexer_get_token_pretty(op.type));
+        BUG("parse_binding: unexpected '%s'", token_pretty(op.type));
     }
 
     binding->binding.init = parse_expr(p);
@@ -212,7 +209,7 @@ static bool is_non_assoc(enum op_type op)
 static struct node *parse_param(struct parser_context *p)
 {
     struct node *node = create_node(p, NODE_PARAM, p->current);
-    advance_token(p);
+    advance(p);
     expect_token(p, TK_COLON);
     node->param.ann = parse_expr(p);
 
@@ -242,24 +239,24 @@ static struct node *parse_prefix(struct parser_context *p)
     switch (p->current.type) {
     case TK_ID:
         node = create_node(p, NODE_ID, p->current);
-        advance_token(p);
+        advance(p);
         break;
     case TK_NUMBER:
     case TK_HEX:
     case TK_OCTAL:
     case TK_BINARY:
         node = create_node(p, NODE_NUMBER, p->current);
-        advance_token(p);
+        advance(p);
         break;
     case TK_TRUE:
     case TK_FALSE:
         node = create_node(p, NODE_BOOL, p->current);
         node->lit_bool.val = check(p, TK_TRUE);
-        advance_token(p);
+        advance(p);
         break;
     case TK_LPAREN:
-        advance_token(p);
-        if (check(p, TK_RPAREN) || (check(p, TK_ID) && peek_at(p, 0).type == TK_COLON)) {
+        advance(p);
+        if (check(p, TK_RPAREN) || (check(p, TK_ID) && peek(p, 0).type == TK_COLON)) {
             node = parse_fn(p);
         } else {
             node = parse_expr(p);
@@ -270,14 +267,14 @@ static struct node *parse_prefix(struct parser_context *p)
     case TK_NOT:
         node = create_node(p, NODE_UNARY, p->current);
         node->unary.type = check(p, TK_MINUS) ? OP_NEG : OP_NOT;
-        advance_token(p);
+        advance(p);
         node->unary.operand = parse_expr_internal(p, prefix_table[node->unary.type]);
         break;
     default:
         node = create_node(p, NODE_ERROR, p->current);
         diag_emit(p->diag, ERROR, loc_of(p, p->current), "Unrecognized expr prefix");
         if (!check(p, TK_SEMICOLON) && !check(p, TK_EOF))
-            advance_token(p);
+            advance(p);
         break;
     }
 
@@ -387,7 +384,7 @@ static struct node *parse_expr_internal(struct parser_context *p, int min_bindin
         if (bp.left < min_binding)
             break;
 
-        advance_token(p);
+        advance(p);
         rhs = parse_expr_internal(p, bp.right);
 
         lhs = build_op_node(p, op_tok, op, lhs, rhs);
@@ -413,14 +410,14 @@ static struct node *parse_expr(struct parser_context *p)
 static struct node *parse_if(struct parser_context *p)
 {
     struct node *node = create_node(p, NODE_ERROR, p->current);
-    advance_token(p);
+    advance(p);
     return node;
 }
 
 static struct node *parse_loop(struct parser_context *p)
 {
     struct node *node = create_node(p, NODE_ERROR, p->current);
-    advance_token(p);
+    advance(p);
     return node;
 }
 
@@ -458,7 +455,7 @@ static struct node *parse_stmt(struct parser_context *p)
 
     if (fn)
         stmt = fn(p);
-    else if (check(p, TK_ID) && is_binding_op(peek_at(p, 0).type))
+    else if (check(p, TK_ID) && is_binding_op(peek(p, 0).type))
         stmt = parse_binding(p);
     else
         stmt = parse_expr_stmt(p);
@@ -475,7 +472,7 @@ static struct node *parse_program(struct parser_context *p)
 {
     struct token program_tok = TOKEN_INIT;
     struct node *program;
-    advance_token(p);
+    advance(p);
 
     program = create_node(p, NODE_PROGRAM, program_tok);
     while (!check(p, TK_EOF)) {
