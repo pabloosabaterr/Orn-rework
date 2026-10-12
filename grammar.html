@@ -52,7 +52,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6ee2a04f.js";
+            window.path_to_searchindex_js = "searchindex-37eec347.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-73e76ee1.js"></script>
@@ -204,21 +204,20 @@ stmt           = ( binding | return | if_stmt | loop_stmt | block | expr ) ";" ;
 block          = "{" { stmt } "}" ;
 return         = "ret" [ expr ] ;
 if_stmt        = "if" expr block [ "else" ( if_stmt | block ) ] ;
-loop_stmt      = "loop" ID "in" expr block ;
+loop_stmt      = "loop" ( ID "in" expr | expr ) block ;
 
 binding        = ID "::" expr
                | ID ":=" expr
                | ID ":" expr ( "=" | ":" ) expr ;
 
-expr           = logic_or ;
-logic_or       = logic_and { "||" logic_and } ;
-logic_and      = comparison { "&amp;&amp;" comparison } ;
-comparison     = range [ ( "==" | "!=" | "&lt;" | "&gt;" | "&lt;=" | "&gt;=" ) range ] ;
-range          = additive [ ".." additive ] ;
-additive       = multiplicative { ( "+" | "-" ) multiplicative } ;
-multiplicative = unary { ( "*" | "/" | "%" ) unary } ;
-unary          = ( "-" | "!" ) unary | postfix ;
-postfix        = primary { "(" [ args ] ")" } ;
+expr           = expr binop expr
+               | prefix_op expr
+               | expr "(" [ args ] ")"
+               | primary ;
+binop          = "||" | "&amp;&amp;"
+               | "==" | "!=" | "&lt;" | "&gt;" | "&lt;=" | "&gt;="
+               | ".." | "+" | "-" | "*" | "/" | "%" ;
+prefix_op      = "-" | "!" ;
 args           = expr { "," expr } ;
 
 primary        = literal | ID | "(" expr ")" | fn_expr ;
@@ -239,6 +238,9 @@ order. Inside the block, <code>i</code> has the range of the loop:</p>
 };
 </code></pre>
 <p>The range is any expression, so an alias works too: <code>loop i in u8 { ... }</code>.</p>
+<p><code>loop cond { ... }</code> runs the block while <code>cond</code> holds. The parser tells both
+forms apart by looking past <code>loop</code>: <code>ID in</code> starts a range loop, anything else
+is a condition.</p>
 <h2 id="bindings"><a class="header" href="#bindings">Bindings</a></h2>
 <div class="table-wrapper">
 <table>
@@ -262,21 +264,22 @@ to. If it declares a return range, every path must end in <code>ret</code>.</p>
 tells them apart by looking past it: <code>()</code> or <code>( ID :</code> starts a function,
 anything else is grouping.</p>
 <h2 id="expressions"><a class="header" href="#expressions">Expressions</a></h2>
-<p>From lowest to highest precedence:</p>
+<p>The <code>expr</code> rule is ambiguous on purpose: the parser is a Pratt parser, and
+how operators group comes from this table, from lowest to highest precedence:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Level</th><th>Operators</th><th>Associativity</th></tr>
+<tr><th>Operators</th><th>Associativity</th></tr>
 </thead>
 <tbody>
-<tr><td>logic_or</td><td><code>||</code></td><td>left</td></tr>
-<tr><td>logic_and</td><td><code>&amp;&amp;</code></td><td>left</td></tr>
-<tr><td>comparison</td><td><code>==</code> <code>!=</code> <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code></td><td>none</td></tr>
-<tr><td>range</td><td><code>..</code></td><td>none</td></tr>
-<tr><td>additive</td><td><code>+</code> <code>-</code></td><td>left</td></tr>
-<tr><td>multiplicative</td><td><code>*</code> <code>/</code> <code>%</code></td><td>left</td></tr>
-<tr><td>unary</td><td><code>-</code> <code>!</code> (prefix)</td><td>right</td></tr>
-<tr><td>postfix</td><td>call <code>f(x)</code></td><td>left</td></tr>
+<tr><td><code>||</code></td><td>left</td></tr>
+<tr><td><code>&amp;&amp;</code></td><td>left</td></tr>
+<tr><td><code>==</code> <code>!=</code> <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code></td><td>none</td></tr>
+<tr><td><code>..</code></td><td>none</td></tr>
+<tr><td><code>+</code> <code>-</code></td><td>left</td></tr>
+<tr><td><code>*</code> <code>/</code> <code>%</code></td><td>left</td></tr>
+<tr><td><code>-</code> <code>!</code> (prefix)</td><td>right</td></tr>
+<tr><td>call <code>f(x)</code></td><td>left</td></tr>
 </tbody>
 </table>
 </div>
